@@ -55,8 +55,10 @@ def main():
     port = int(os.getenv('PORT', 0))
     if port:
         # Production mode: Use webhooks
-        webhook_url = f"https://mymind.onrender.com"
+        render_url = os.getenv('RENDER_EXTERNAL_URL', 'https://mymind-g2n8.onrender.com')
+        webhook_url = f"{render_url}"
         logger.info(f"🌐 Starting webhook mode on port {port}")
+        logger.info(f"🔗 Webhook URL: {webhook_url}")
         application.run_webhook(
             listen="0.0.0.0",
             port=port,
