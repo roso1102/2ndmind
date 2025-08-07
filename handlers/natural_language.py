@@ -113,6 +113,11 @@ Respond ONLY with a JSON object like this:
         if any(keyword in message_lower for keyword in question_keywords):
             return {"intent": "QUESTION", "confidence": 0.7, "reasoning": "Keyword match for question"}
         
+        # Greeting keywords
+        greeting_keywords = ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'greetings', 'howdy', 'sup', 'yo']
+        if any(keyword in message_lower for keyword in greeting_keywords):
+            return {"intent": "GREETING", "confidence": 0.8, "reasoning": "Greeting detected"}
+        
         return {"intent": "OTHER", "confidence": 0.5, "reasoning": "No keyword matches"}
 
 # Global classifier instance
@@ -144,6 +149,8 @@ async def process_natural_message(update, context=None) -> None:
             await handle_reminder_intent(update, context, user_message, classification)
         elif intent == "QUESTION":
             await handle_question_intent(update, context, user_message, classification)
+        elif intent == "GREETING":
+            await handle_greeting_intent(update, context, user_message, classification)
         else:
             await handle_other_intent(update, context, user_message, classification)
             
@@ -214,6 +221,33 @@ async def handle_question_intent(update, context, message: str, classification: 
     response += "💡 *Soon I'll answer questions using your personal knowledge base!*"
     
     await update.message.reply_text(response, parse_mode='Markdown')
+
+async def handle_greeting_intent(update, context, message: str, classification: Dict) -> None:
+    """Handle greetings and casual conversation starters."""
+    
+    confidence = classification['confidence']
+    
+    greetings = [
+        "👋 Hello there! Great to see you!",
+        "🌟 Hi! I'm MySecondMind, your AI assistant.",
+        "💫 Hey! Ready to boost your productivity?",
+        "🤖 Greetings! How can I help you today?",
+        "✨ Hello! Let's make your day more organized!"
+    ]
+    
+    import random
+    greeting = random.choice(greetings)
+    
+    response = f"{greeting}\n\n"
+    response += "Here are some things you can try:\n\n"
+    response += "💬 **Just chat naturally with me!**\n"
+    response += "📋 *\"I need to finish my report by Friday\"*\n"
+    response += "📝 *\"Remember my doctor's appointment is at 3pm\"*\n"
+    response += "⏰ *\"Remind me to call mom tomorrow\"*\n"
+    response += "❓ *\"What's the weather like?\"*\n\n"
+    response += "Or use commands like `/help` to see all options!"
+    
+    await update.message.reply_text(response)
 
 async def handle_other_intent(update, context, message: str, classification: Dict) -> None:
     """Handle other/unclassified messages."""
