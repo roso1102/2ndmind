@@ -53,7 +53,7 @@ def main():
     
     # Always use webhook mode for production deployment
     port = int(os.getenv('PORT', 10000))  # Default port for local testing
-    render_url = os.getenv('RENDER_EXTERNAL_URL', 'https://mymind-g2n8.onrender.com')
+    render_url = os.getenv('RENDER_EXTERNAL_URL', 'https://mymind-924q.onrender.com')
     webhook_url = f"{render_url}"
     
     logger.info(f"🌐 Starting webhook mode on port {port}")
