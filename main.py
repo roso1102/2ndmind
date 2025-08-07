@@ -74,13 +74,28 @@ async def health_status():
         "status": "healthy",
         "bot_configured": bool(TELEGRAM_BOT_TOKEN),
         "webhook_url": WEBHOOK_URL,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
+        "version": "1.0.0",
+        "endpoints": ["GET /", "GET /health", "GET /ping", "POST /webhook"]
     }
 
 @app.get("/ping")
 async def ping():
     """Simple ping endpoint"""
     return {"ping": "pong", "timestamp": time.time()}
+
+@app.get("/debug/routes")
+async def debug_routes():
+    """Debug endpoint to see all registered routes"""
+    routes = []
+    for route in app.routes:
+        if hasattr(route, 'methods') and hasattr(route, 'path'):
+            routes.append({
+                "path": route.path,
+                "methods": list(route.methods) if route.methods else [],
+                "name": getattr(route, 'name', 'Unknown')
+            })
+    return {"routes": routes, "total_routes": len(routes)}
 
 # --- Webhook handler ---
 @app.post("/webhook")
