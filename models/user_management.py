@@ -38,15 +38,26 @@ class UserManager:
         self.supabase_key = os.getenv('SUPABASE_ANON_KEY')
         
         if not self.supabase_url or not self.supabase_key:
-            raise ValueError("❌ SUPABASE_URL and SUPABASE_ANON_KEY environment variables are required")
+            logger.error("❌ SUPABASE_URL and SUPABASE_ANON_KEY environment variables are required")
+            # Don't raise exception, just log error so bot can still start
+            self.supabase = None
+            return
         
-        self.supabase: Client = create_client(self.supabase_url, self.supabase_key)
-        logger.info("✅ Supabase client initialized successfully")
+        try:
+            self.supabase: Client = create_client(self.supabase_url, self.supabase_key)
+            logger.info("✅ Supabase client initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Supabase client: {e}")
+            self.supabase = None
     
     def register_user(self, user_id: str, notion_token: str, 
                      db_notes: str, db_links: str, db_reminders: str,
                      telegram_username: Optional[str] = None) -> bool:
         """Register a new user with their Notion workspace details."""
+        if not self.supabase:
+            logger.error("❌ Supabase client not initialized - cannot register user")
+            return False
+            
         try:
             # Encrypt the Notion token
             encrypted_token = encrypt_user_token(user_id, notion_token)

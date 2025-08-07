@@ -169,8 +169,14 @@ Try saying things like:
                             self.id = int(user_id)
                             self.username = username
                     
-                    mock_update = MockUpdate(text, chat_id, user_id, message.get("from", {}).get("username"))
-                    await handle_register_command(mock_update)
+                    try:
+                        log(f"🔧 Processing /register command for user {user_id}")
+                        mock_update = MockUpdate(text, chat_id, user_id, message.get("from", {}).get("username"))
+                        await handle_register_command(mock_update)
+                        log(f"✅ /register command completed for user {user_id}")
+                    except Exception as e:
+                        log(f"❌ Error in /register command: {e}", "ERROR")
+                        await send_message(chat_id, f"❌ Registration failed: {str(e)}")
                     return {"ok": True}
                     
                 elif cmd == "/status":
