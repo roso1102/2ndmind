@@ -121,7 +121,6 @@ async def telegram_webhook(request: Request):
                         "• Information storage\n"
                         "• Smart responses\n\n"
                         "Just start chatting with me naturally!")
-                    return {"ok": True}
                     
                 elif cmd == "/help":
                     help_text = """
@@ -148,7 +147,6 @@ Try saying things like:
 • "What did I save about productivity?"
 """
                     await send_message(chat_id, help_text)
-                    return {"ok": True}
 
                 elif cmd == "/register":
                     log(f"🎯 /register command detected - creating mock objects")
@@ -181,25 +179,25 @@ Try saying things like:
                     except Exception as e:
                         log(f"❌ Error in /register command: {e}", "ERROR")
                         await send_message(chat_id, f"❌ Registration failed: {str(e)}")
-                    return {"ok": True}
                     
                 elif cmd == "/status":
                     await send_message(chat_id, 
                         "🟢 MySecondMind Status: ONLINE\n"
                         f"🕐 Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
                         "💚 All systems operational!")
-                    return {"ok": True}
                     
                 elif cmd == "/health":
                     await send_message(chat_id, "🟢 Bot is healthy and running!")
-                    return {"ok": True}
                 
                 else:
                     # Unknown command
                     await send_message(chat_id, f"❓ Unknown command: {cmd}\n\nUse /help to see available commands.")
-                    return {"ok": True}
+                
+                # CRITICAL FIX: Return here after handling ANY command
+                return {"ok": True}
             
             # Process non-command messages with AI
+            # This section will ONLY execute for non-command messages now
             else:
                 try:
                     # Create a mock update object for the handler
