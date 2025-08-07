@@ -58,31 +58,64 @@ async def send_message(chat_id: int, text: str):
 
 # --- Health check endpoints ---
 @app.get("/")
-async def health_check():
+async def health_check(request: Request):
     """Root health check for UptimeRobot"""
+    user_agent = request.headers.get("user-agent", "")
+    log(f"Health check request from: {user_agent}")
+    
     return {
         "status": "healthy",
         "service": "MySecondMind Bot",
         "timestamp": datetime.now().isoformat(),
-        "message": "🟢 Bot is online and ready!"
+        "message": "🟢 Bot is online and ready!",
+        "user_agent": user_agent
     }
 
 @app.get("/health")
-async def health_status():
+async def health_status(request: Request):
     """Detailed health status"""
+    user_agent = request.headers.get("user-agent", "")
+    
     return {
         "status": "healthy",
         "bot_configured": bool(TELEGRAM_BOT_TOKEN),
         "webhook_url": WEBHOOK_URL,
         "timestamp": datetime.now().isoformat(),
         "version": "1.0.0",
-        "endpoints": ["GET /", "GET /health", "GET /ping", "POST /webhook"]
+        "endpoints": ["GET /", "GET /health", "GET /ping", "POST /webhook"],
+        "user_agent": user_agent
     }
+
+# Add HEAD method support for UptimeRobot
+@app.head("/")
+async def health_check_head():
+    """HEAD request support for UptimeRobot"""
+    return {}
+
+@app.head("/health")
+async def health_status_head():
+    """HEAD request support for UptimeRobot"""
+    return {}
+
+@app.head("/ping")
+async def ping_head():
+    """HEAD request support for UptimeRobot"""
+    return {}
 
 @app.get("/ping")
 async def ping():
     """Simple ping endpoint"""
     return {"ping": "pong", "timestamp": time.time()}
+
+@app.get("/status")
+async def simple_status():
+    """Ultra simple status endpoint for UptimeRobot"""
+    return {"status": "ok"}
+
+@app.get("/ok")
+async def simple_ok():
+    """Ultra simple OK endpoint"""
+    return "OK"
 
 @app.get("/debug/routes")
 async def debug_routes():
