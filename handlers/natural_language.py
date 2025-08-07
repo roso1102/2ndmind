@@ -30,12 +30,14 @@ class IntentClassifier:
         self.groq_client = None
         if GROQ_AVAILABLE and os.getenv('GROQ_API_KEY'):
             try:
-                # Initialize Groq client with only the API key
+                # Initialize Groq client with explicit parameters only
                 api_key = os.getenv('GROQ_API_KEY')
+                # Create client with minimal parameters to avoid conflicts
                 self.groq_client = Groq(api_key=api_key)
                 logger.info("✅ Groq AI initialized successfully")
             except Exception as e:
                 logger.error(f"❌ Failed to initialize Groq: {e}")
+                logger.info("🔄 Falling back to keyword-based classification")
                 self.groq_client = None
         else:
             logger.warning("⚠️ Groq API key not found. Using keyword fallback.")
