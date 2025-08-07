@@ -68,7 +68,7 @@ def main():
     logger.info(f"🔍 Environment - PORT: {os.getenv('PORT', 'Using default 10000')}")
     logger.info("💚 Health monitoring: Send /health command to bot for status")
     
-    # Webhook mode only - no polling conflicts
+    # Webhook mode - will automatically respond to GET requests at root
     application.run_webhook(
         listen="0.0.0.0",
         port=port,
