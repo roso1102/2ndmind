@@ -18,17 +18,24 @@ logger = logging.getLogger(__name__)
 async def handle_register_command(update, context=None) -> None:
     """Handle the /register command for Notion workspace setup."""
     
+    logger.info(f"🔧 Registration handler called with update: {update}")
+    
     if not update.message or not update.message.text:
+        logger.error("❌ No message or text in update")
         return
     
     user_id = str(update.effective_user.id)
     username = update.effective_user.username
     
+    logger.info(f"🔧 Processing registration for user {user_id} ({username})")
+    
     # Parse command arguments
     parts = update.message.text.split()
+    logger.info(f"🔧 Command parts: {parts}")
     
     if len(parts) == 1:
         # No arguments - show help
+        logger.info("📖 Showing registration help")
         await send_registration_help(update)
         return
     

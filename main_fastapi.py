@@ -151,6 +151,7 @@ Try saying things like:
                     return {"ok": True}
 
                 elif cmd == "/register":
+                    log(f"🎯 /register command detected - creating mock objects")
                     # Create mock update object for registration handler
                     class MockUpdate:
                         def __init__(self, text, chat_id, user_id, username):
@@ -163,6 +164,7 @@ Try saying things like:
                             self.chat_id = chat_id
                             
                         async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
+                            log(f"📤 Sending reply: {response[:100]}...")
                             await send_message(self.chat_id, response)
                     
                     class MockUser:
@@ -173,6 +175,7 @@ Try saying things like:
                     try:
                         log(f"🔧 Processing /register command for user {user_id}")
                         mock_update = MockUpdate(text, chat_id, user_id, message.get("from", {}).get("username"))
+                        log(f"🔧 Calling handle_register_command with mock_update")
                         await handle_register_command(mock_update)
                         log(f"✅ /register command completed for user {user_id}")
                     except Exception as e:
