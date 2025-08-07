@@ -1,0 +1,8 @@
+# Minimal Dependencies for MySecondMind Bot
+# Use this if the main requirements.txt fails
+
+python-telegram-bot
+groq
+python-dotenv
+cryptography
+requests
