@@ -51,24 +51,22 @@ def main():
     logger.info("📱 Available commands: /start, /help, /status, /register")
     logger.info("🤖 AI-powered natural language processing enabled")
     
-    # Check if running on Render (production) or locally
-    port = int(os.getenv('PORT', 0))
-    if port:
-        # Production mode: Use webhooks
-        render_url = os.getenv('RENDER_EXTERNAL_URL', 'https://mymind-g2n8.onrender.com')
-        webhook_url = f"{render_url}"
-        logger.info(f"🌐 Starting webhook mode on port {port}")
-        logger.info(f"🔗 Webhook URL: {webhook_url}")
-        application.run_webhook(
-            listen="0.0.0.0",
-            port=port,
-            webhook_url=webhook_url,
-            allowed_updates=None
-        )
-    else:
-        # Development mode: Use polling
-        logger.info("🔄 Starting polling mode for development")
-        application.run_polling(allowed_updates=None)
+    # Always use webhook mode for production deployment
+    port = int(os.getenv('PORT', 10000))  # Default port for local testing
+    render_url = os.getenv('RENDER_EXTERNAL_URL', 'https://mymind-g2n8.onrender.com')
+    webhook_url = f"{render_url}"
+    
+    logger.info(f"🌐 Starting webhook mode on port {port}")
+    logger.info(f"🔗 Webhook URL: {webhook_url}")
+    logger.info(f"🔍 Environment - PORT: {os.getenv('PORT', 'Using default 10000')}")
+    
+    # Webhook mode only - no polling conflicts
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=port,
+        webhook_url=webhook_url,
+        allowed_updates=None
+    )
 
 if __name__ == '__main__':
     main()
