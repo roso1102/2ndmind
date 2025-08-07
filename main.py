@@ -83,6 +83,44 @@ async def ping():
     """Simple ping endpoint"""
     return {"ping": "pong", "timestamp": time.time()}
 
+@app.head("/")
+async def health_check_head():
+    """HEAD request support for UptimeRobot"""
+    return {}
+
+@app.head("/health")
+async def health_status_head():
+    """HEAD request support for UptimeRobot"""
+    return {}
+
+@app.head("/ping")
+async def ping_head():
+    """HEAD request support for UptimeRobot"""
+    return {}
+
+@app.get("/status")
+async def simple_status():
+    """Ultra simple status endpoint for UptimeRobot"""
+    return {"status": "ok"}
+
+@app.get("/ok")
+async def simple_ok():
+    """Ultra simple OK endpoint"""
+    return "OK"
+
+@app.get("/debug/routes")
+async def debug_routes():
+    """Debug endpoint to see all registered routes"""
+    routes = []
+    for route in app.routes:
+        if hasattr(route, 'methods') and hasattr(route, 'path'):
+            routes.append({
+                "path": route.path,
+                "methods": list(route.methods) if route.methods else [],
+                "name": getattr(route, 'name', 'Unknown')
+            })
+    return {"routes": routes, "total_routes": len(routes)}
+
 # Add webhook debugging endpoints
 @app.get("/webhook")
 async def webhook_get():
