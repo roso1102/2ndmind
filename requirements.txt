@@ -1,6 +1,7 @@
-# Essential Dependencies for MySecondMind Bot
-python-telegram-bot[webhooks]==21.9
+# Essential Dependencies for MySecondMind Bot - FastAPI Version
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+httpx==0.25.2
 groq==0.15.0
 python-dotenv==1.0.0
 cryptography==43.0.3
-requests==2.32.3

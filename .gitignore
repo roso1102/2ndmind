@@ -49,6 +49,15 @@ debug_*.py             # Debug files
 setup_*.py             # Setup files
 *.test                 # Test output files
 
+# ===== BACKUP AND TEMP FILES =====
+main_telegram_bot.py   # Backup of old main.py
+main_fastapi.py        # Backup FastAPI version
+understand.md          # Analysis/documentation files
+DEPLOY_*.md            # Deployment documentation
+webhook_checker.py     # Development utility scripts
+*.backup               # Backup files
+*.bak                  # Backup files
+
 # ===== DEPLOYMENT SECRETS =====
 *.key                  # Any key files
 *.pem                  # Certificate files
