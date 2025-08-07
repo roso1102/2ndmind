@@ -199,45 +199,45 @@ Try saying things like:
             # Process non-command messages with AI
             else:
                 try:
-                # Create a mock update object for the handler
-                class MockUpdate:
-                    def __init__(self, text, chat_id, user_id, username):
-                        self.message = MockMessage(text, chat_id, user_id)
-                        self.effective_user = MockEffectiveUser(user_id, username)
-                
-                class MockMessage:
-                    def __init__(self, text, chat_id, user_id):
-                        self.text = text
-                        self.chat_id = chat_id
-                        self.from_user = MockUser(user_id)
-                        
-                    async def reply_text(self, response, parse_mode=None):
-                        await send_message(self.chat_id, response)
-                
-                class MockUser:
-                    def __init__(self, user_id):
-                        self.id = user_id
+                    # Create a mock update object for the handler
+                    class MockUpdate:
+                        def __init__(self, text, chat_id, user_id, username):
+                            self.message = MockMessage(text, chat_id, user_id)
+                            self.effective_user = MockEffectiveUser(user_id, username)
+                    
+                    class MockMessage:
+                        def __init__(self, text, chat_id, user_id):
+                            self.text = text
+                            self.chat_id = chat_id
+                            self.from_user = MockUser(user_id)
+                            
+                        async def reply_text(self, response, parse_mode=None):
+                            await send_message(self.chat_id, response)
+                    
+                    class MockUser:
+                        def __init__(self, user_id):
+                            self.id = user_id
 
-                class MockEffectiveUser:
-                    def __init__(self, user_id, username):
-                        self.id = int(user_id)
-                        self.username = username
-                
-                # Check if user is registered before processing natural language
-                mock_update = MockUpdate(text, chat_id, user_id, message.get("from", {}).get("username"))
-                
-                # For natural language processing, check registration first
-                if not await check_user_registration(mock_update):
-                    return {"ok": True}  # Registration prompt already sent
-                
-                # Process with natural language handler
-                await process_natural_message(mock_update, None)
-                
-            except Exception as e:
-                log(f"Error processing natural language: {e}", level="ERROR")
-                await send_message(chat_id, 
-                    "I understand your message, but I'm having trouble processing it right now. "
-                    "Please try again!")
+                    class MockEffectiveUser:
+                        def __init__(self, user_id, username):
+                            self.id = int(user_id)
+                            self.username = username
+                    
+                    # Check if user is registered before processing natural language
+                    mock_update = MockUpdate(text, chat_id, user_id, message.get("from", {}).get("username"))
+                    
+                    # For natural language processing, check registration first
+                    if not await check_user_registration(mock_update):
+                        return {"ok": True}  # Registration prompt already sent
+                    
+                    # Process with natural language handler
+                    await process_natural_message(mock_update, None)
+                    
+                except Exception as e:
+                    log(f"Error processing natural language: {e}", level="ERROR")
+                    await send_message(chat_id, 
+                        "I understand your message, but I'm having trouble processing it right now. "
+                        "Please try again!")
         
         else:
             # Handle non-text messages
