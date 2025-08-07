@@ -109,10 +109,16 @@ async def telegram_webhook(request: Request):
             text = message["text"]
             log(f"Handling message: {text} from user {user_id}")
             
+            # CRITICAL DEBUG: Check text properties
+            log(f"🔍 DEBUG: text='{text}', type={type(text)}, repr={repr(text)}")
+            log(f"🔍 DEBUG: text.startswith('/')={text.startswith('/')}")
+            log(f"🔍 DEBUG: len(text)={len(text)}, first_char='{text[0] if text else 'EMPTY'}'")
+            
             # Process commands
             if text.startswith("/"):
                 cmd = text.split()[0].lower()
-                log(f"🔧 Command detected: {cmd}")
+                log(f"🎯 COMMAND DETECTED: {cmd}")
+                log(f"🎯 ENTERING COMMAND PROCESSING BLOCK")
                 
                 if cmd == "/start":
                     await send_message(chat_id, "👋 Welcome to MySecondMind!\n\nI'm your AI-powered personal assistant. I can help you with:\n• Task management\n• Information storage\n• Smart responses\n\nUse /register to connect your Notion workspace and get started!")
@@ -193,6 +199,8 @@ Try saying things like:
             
             # Process non-command messages with natural language
             else:
+                log(f"❌ CRITICAL: Going to natural language instead of command!")
+                log(f"❌ DEBUG: text='{text}', startswith=/={text.startswith('/')}")
                 log(f"💭 Processing natural language: {text}")
                 try:
                     # Create a mock update object for the handler
