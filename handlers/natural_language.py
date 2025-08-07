@@ -30,7 +30,9 @@ class IntentClassifier:
         self.groq_client = None
         if GROQ_AVAILABLE and os.getenv('GROQ_API_KEY'):
             try:
-                self.groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
+                # Initialize Groq client with only the API key
+                api_key = os.getenv('GROQ_API_KEY')
+                self.groq_client = Groq(api_key=api_key)
                 logger.info("✅ Groq AI initialized successfully")
             except Exception as e:
                 logger.error(f"❌ Failed to initialize Groq: {e}")
