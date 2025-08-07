@@ -63,7 +63,7 @@ MySecondMind is not just a note-taking bot. It's a comprehensive personal AI ass
   - Token decryption only when needed for API calls
 
 - **Create user management system**:
-  - User database schema (SQLite for MVP)
+  - User database schema (Supabase)
   - User session management
   - Multi-user isolation and security
 
@@ -258,7 +258,7 @@ MySecondMind/
 ### **Technology Stack**
 - **Backend**: FastAPI, Uvicorn
 - **AI/NLP**: Groq (LLaMA 3), sentence-transformers
-- **Storage**: Notion API (user data), SQLite (system data)
+- **Storage**: Notion API (user data), Supabase (system data)
 - **Security**: Fernet encryption, per-user isolation
 - **Scheduling**: APScheduler for background tasks
 - **File Processing**: PyMuPDF, Pillow, Tesseract OCR
@@ -310,7 +310,7 @@ MySecondMind/
 
 3. **Implement user registration system**
    - Add `/register` command handler
-   - Create user data storage (SQLite)
+   - Create user data storage (Supabase)
    - Add Fernet encryption for tokens
 
 ### **Dependencies & Prerequisites**

@@ -5,3 +5,4 @@ httpx==0.25.2
 groq==0.15.0
 python-dotenv==1.0.0
 cryptography==43.0.3
+supabase==2.8.1
