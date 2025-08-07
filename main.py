@@ -61,19 +61,20 @@ def main():
     # Always use webhook mode for production deployment
     port = int(os.getenv('PORT', 10000))  # Default port for local testing
     render_url = os.getenv('RENDER_EXTERNAL_URL', 'https://mymind-924q.onrender.com')
-    webhook_url = f"{render_url}"
+    webhook_url = f"{render_url}/telegram"  # Use /telegram path for webhook
     
     logger.info(f"🌐 Starting webhook mode on port {port}")
     logger.info(f"🔗 Webhook URL: {webhook_url}")
     logger.info(f"🔍 Environment - PORT: {os.getenv('PORT', 'Using default 10000')}")
-    logger.info("💚 Health monitoring: Send /health command to bot for status")
+    logger.info("💚 Health monitoring: Use root URL for health checks")
     
-    # Webhook mode - standard setup
+    # Webhook mode with custom URL path
     logger.info("🚀 Starting webhook mode...")
     application.run_webhook(
         listen="0.0.0.0",
         port=port,
         webhook_url=webhook_url,
+        url_path="/telegram",  # Only handle Telegram webhooks on /telegram
         allowed_updates=None
     )
 
