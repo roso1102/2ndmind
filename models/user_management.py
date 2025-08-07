@@ -44,7 +44,11 @@ class UserManager:
             return
         
         try:
-            self.supabase: Client = create_client(self.supabase_url, self.supabase_key)
+            # Create Supabase client with minimal parameters to avoid version conflicts
+            self.supabase: Client = create_client(
+                self.supabase_url, 
+                self.supabase_key
+            )
             logger.info("✅ Supabase client initialized successfully")
         except Exception as e:
             logger.error(f"❌ Failed to initialize Supabase client: {e}")
