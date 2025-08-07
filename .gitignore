@@ -1,0 +1,49 @@
+# MySecondMind .gitignore
+# This tells Git which files to NEVER upload to GitHub
+
+# ===== SECURITY (NEVER UPLOAD THESE) =====
+.env                    # Contains your API keys and secrets
+*.env                   # Any .env files
+.env.local
+.env.production
+
+# ===== USER DATA (ENCRYPTED BUT PRIVATE) =====
+data/                   # User data (even though it's encrypted)
+*.json.enc             # Encrypted user files
+user_data.json.enc     # Specific user data file
+
+# ===== PYTHON ENVIRONMENT =====
+venv/                   # Virtual environment (too big, recreatable)
+mysecondmind_env/      # Alternative venv name
+__pycache__/           # Python cache files
+*.pyc                  # Compiled Python files
+*.pyo                  # Optimized Python files
+*.pyd                  # Python extension modules
+.Python                # Python-specific files
+
+# ===== IDE/EDITOR FILES =====
+.vscode/               # VS Code settings (optional - you can remove this line if you want to share VS Code settings)
+.idea/                 # PyCharm settings
+*.swp                  # Vim swap files
+*.swo                  # Vim swap files
+*~                     # Temporary files
+
+# ===== LOGS AND TEMPORARY FILES =====
+*.log                  # Log files
+logs/                  # Log directory
+temp/                  # Temporary files
+tmp/                   # Temporary files
+
+# ===== OPERATING SYSTEM FILES =====
+.DS_Store              # macOS
+Thumbs.db              # Windows
+*.tmp                  # Temporary files
+
+# ===== TESTING AND DEBUG =====
+test_*.py              # Our test files (optional - remove if you want to share tests)
+debug_*.py             # Debug files
+
+# ===== DEPLOYMENT SECRETS =====
+*.key                  # Any key files
+*.pem                  # Certificate files
+config.json            # Config files that might contain secrets

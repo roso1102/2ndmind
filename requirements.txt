@@ -1,0 +1,25 @@
+# Core Dependencies
+python-telegram-bot==20.7
+notion-client==2.2.1
+groq==0.4.1
+
+# Security & Encryption
+cryptography==41.0.7
+
+# Scheduling & Background Tasks
+APScheduler==3.10.4
+
+# File Processing
+PyMuPDF==1.23.8
+Pillow==10.1.0
+pytesseract==0.3.10
+
+# HTTP & Web
+requests==2.31.0
+beautifulsoup4==4.12.2
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# Date/Time Utilities
+python-dateutil==2.8.2
