@@ -31,7 +31,8 @@ WEBHOOK_URL = os.getenv('RENDER_EXTERNAL_URL', 'https://mymind-924q.onrender.com
 API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
 # Import handlers
-from handlers.natural_language import process_natural_message
+from handlers.registration import handle_register_command, check_user_registration
+# NOTE: Natural language processing temporarily removed for debugging
 
 def log(message, level="INFO"):
     """Simple logging function"""
@@ -58,83 +59,36 @@ async def send_message(chat_id: int, text: str):
 
 # --- Health check endpoints ---
 @app.get("/")
-async def health_check(request: Request):
+async def health_check():
     """Root health check for UptimeRobot"""
-    user_agent = request.headers.get("user-agent", "")
-    log(f"Health check request from: {user_agent}")
-    
     return {
         "status": "healthy",
         "service": "MySecondMind Bot",
         "timestamp": datetime.now().isoformat(),
-        "message": "🟢 Bot is online and ready!",
-        "user_agent": user_agent
+        "message": "🟢 Bot is online and ready!"
     }
 
 @app.get("/health")
-async def health_status(request: Request):
+async def health_status():
     """Detailed health status"""
-    user_agent = request.headers.get("user-agent", "")
-    
     return {
         "status": "healthy",
         "bot_configured": bool(TELEGRAM_BOT_TOKEN),
         "webhook_url": WEBHOOK_URL,
-        "timestamp": datetime.now().isoformat(),
-        "version": "1.0.0",
-        "endpoints": ["GET /", "GET /health", "GET /ping", "POST /webhook"],
-        "user_agent": user_agent
+        "timestamp": datetime.now().isoformat()
     }
-
-# Add HEAD method support for UptimeRobot
-@app.head("/")
-async def health_check_head():
-    """HEAD request support for UptimeRobot"""
-    return {}
-
-@app.head("/health")
-async def health_status_head():
-    """HEAD request support for UptimeRobot"""
-    return {}
-
-@app.head("/ping")
-async def ping_head():
-    """HEAD request support for UptimeRobot"""
-    return {}
 
 @app.get("/ping")
 async def ping():
     """Simple ping endpoint"""
     return {"ping": "pong", "timestamp": time.time()}
 
-@app.get("/status")
-async def simple_status():
-    """Ultra simple status endpoint for UptimeRobot"""
-    return {"status": "ok"}
-
-@app.get("/ok")
-async def simple_ok():
-    """Ultra simple OK endpoint"""
-    return "OK"
-
-@app.get("/debug/routes")
-async def debug_routes():
-    """Debug endpoint to see all registered routes"""
-    routes = []
-    for route in app.routes:
-        if hasattr(route, 'methods') and hasattr(route, 'path'):
-            routes.append({
-                "path": route.path,
-                "methods": list(route.methods) if route.methods else [],
-                "name": getattr(route, 'name', 'Unknown')
-            })
-    return {"routes": routes, "total_routes": len(routes)}
-
 # --- Webhook handler ---
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
     """Handle incoming Telegram webhook"""
     chat_id = None
+    user_id = None
     
     try:
         # Parse the incoming webhook data
@@ -149,24 +103,25 @@ async def telegram_webhook(request: Request):
         chat_id = message["chat"]["id"]
         user_id = str(message["from"]["id"])
         
-        # Handle text messages
+        # Process different message types
         if "text" in message:
+            # Handle text messages
             text = message["text"]
-            log(f"Handling message: {text} from user {user_id}")
+            log(f"🚀 NEW VERSION: Handling message: {text} from user {user_id}")
             
-            # Handle commands
+            # CRITICAL DEBUG: Check text properties
+            log(f"🔍 DEBUG: text='{text}', type={type(text)}, repr={repr(text)}")
+            log(f"🔍 DEBUG: text.startswith('/')={text.startswith('/')}")
+            log(f"🔍 DEBUG: len(text)={len(text)}, first_char='{text[0] if text else 'EMPTY'}'")
+            
+            # Process commands
             if text.startswith("/"):
                 cmd = text.split()[0].lower()
+                log(f"🎯 COMMAND DETECTED: {cmd}")
+                log(f"🎯 ENTERING COMMAND PROCESSING BLOCK")
                 
                 if cmd == "/start":
-                    await send_message(chat_id, 
-                        "👋 Welcome to MySecondMind!\n\n"
-                        "I'm your AI-powered personal assistant. I can help you with:\n"
-                        "• Natural conversation\n"
-                        "• Task management\n"
-                        "• Information storage\n"
-                        "• Smart responses\n\n"
-                        "Just start chatting with me naturally!")
+                    await send_message(chat_id, "👋 Welcome to MySecondMind!\n\nI'm your AI-powered personal assistant. I can help you with:\n• Task management\n• Information storage\n• Smart responses\n\nUse /register to connect your Notion workspace and get started!")
                     return {"ok": True}
                     
                 elif cmd == "/help":
@@ -175,23 +130,55 @@ async def telegram_webhook(request: Request):
 
 *Commands:*
 • /start - Welcome message
+• /register - Connect your Notion workspace
 • /help - Show this help
 • /status - Bot status
 • /health - Health check
 
 *Natural Language:*
 Just chat with me naturally! I can understand and respond to:
-• Questions and conversations
-• Task requests
-• Information queries
-• General assistance
+• Notes and ideas to save
+• Links to bookmark
+• Reminders to set
+• Questions about your saved content
 
 Try saying things like:
-• "How are you?"
-• "What can you do?"
-• "Tell me a joke"
+• "I learned something interesting today..."
+• "Read later: https://example.com"
+• "Remind me to call mom tomorrow"
+• "What did I save about productivity?"
 """
                     await send_message(chat_id, help_text)
+                    return {"ok": True}
+                    
+                elif cmd == "/register":
+                    log(f"🎯 Processing /register for user {user_id}")
+                    # Create mock update object for registration handler
+                    class MockUpdate:
+                        def __init__(self, text, chat_id, user_id, username):
+                            self.message = MockMessage(text, chat_id)
+                            self.effective_user = MockUser(user_id, username)
+                    
+                    class MockMessage:
+                        def __init__(self, text, chat_id):
+                            self.text = text
+                            self.chat_id = chat_id
+                            
+                        async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
+                            await send_message(self.chat_id, response)
+                    
+                    class MockUser:
+                        def __init__(self, user_id, username):
+                            self.id = int(user_id)
+                            self.username = username
+                    
+                    try:
+                        mock_update = MockUpdate(text, chat_id, user_id, message.get("from", {}).get("username"))
+                        await handle_register_command(mock_update)
+                        log(f"✅ /register completed for user {user_id}")
+                    except Exception as e:
+                        log(f"❌ Error in /register: {e}", "ERROR")
+                        await send_message(chat_id, f"❌ Registration failed: {str(e)}")
                     return {"ok": True}
                     
                 elif cmd == "/status":
@@ -204,37 +191,17 @@ Try saying things like:
                 elif cmd == "/health":
                     await send_message(chat_id, "🟢 Bot is healthy and running!")
                     return {"ok": True}
+                
+                else:
+                    # Unknown command
+                    await send_message(chat_id, f"❓ Unknown command: {cmd}\n\nUse /help to see available commands.")
+                    return {"ok": True}
             
-            # Process non-command messages with AI
-            try:
-                # Create a mock update object for the handler
-                class MockUpdate:
-                    def __init__(self, text, chat_id, user_id):
-                        self.message = MockMessage(text, chat_id, user_id)
-                        self.effective_user = MockUser(user_id)
-                
-                class MockMessage:
-                    def __init__(self, text, chat_id, user_id):
-                        self.text = text
-                        self.chat_id = chat_id
-                        self.from_user = MockUser(user_id)
-                        
-                    async def reply_text(self, response, parse_mode=None):
-                        await send_message(self.chat_id, response)
-                
-                class MockUser:
-                    def __init__(self, user_id):
-                        self.id = int(user_id)
-                
-                # Process with natural language handler
-                mock_update = MockUpdate(text, chat_id, user_id)
-                await process_natural_message(mock_update, None)
-                
-            except Exception as e:
-                log(f"Error processing natural language: {e}", level="ERROR")
-                await send_message(chat_id, 
-                    "I understand your message, but I'm having trouble processing it right now. "
-                    "Please try again!")
+            # For now, respond to non-commands with a simple message
+            else:
+                log(f"💬 Non-command message received: {text}")
+                await send_message(chat_id, "🤖 I received your message! For now, I only respond to commands. Use /help to see available commands.")
+                return {"ok": True}
         
         else:
             # Handle non-text messages
