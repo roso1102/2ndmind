@@ -194,7 +194,9 @@ To connect your personal Notion workspace, use:
 • Copy each database ID from the URL (32-char string)
 
 **4. Register** ✅
-`/register secret_abc123 db_notes_id db_links_id db_reminders_id`
+`/register ntn_abc123 db_notes_id db_links_id db_reminders_id`
+
+*Note: Both new format (`ntn_`) and legacy format (`secret_`) tokens are supported.*
 
 **Security:** 🔒
 • Your token is encrypted with military-grade security
@@ -242,12 +244,19 @@ Just chat naturally - I understand what you want to save! 🤖✨
 def validate_registration_inputs(notion_token: str, db_notes: str, db_links: str, db_reminders: str) -> Optional[str]:
     """Validate registration inputs and return error message if invalid."""
     
-    # Validate Notion token format
-    if not re.match(r'^secret_[a-zA-Z0-9]{43}$', notion_token):
+    # Validate Notion token format - support both new ntn_ and legacy secret_ formats
+    legacy_format = re.match(r'^secret_[a-zA-Z0-9]{43}$', notion_token)
+    new_format = re.match(r'^ntn_[a-zA-Z0-9]{43}$', notion_token)
+    
+    if not (legacy_format or new_format):
         return (
             "❌ **Invalid Notion Token**\n\n"
-            "Notion tokens should start with `secret_` followed by 43 characters.\n\n"
-            "Example: `secret_abc123def456...`\n\n"
+            "Notion tokens should start with either:\n"
+            "• `ntn_` (new format) followed by 43 characters\n"
+            "• `secret_` (legacy format) followed by 43 characters\n\n"
+            "Examples:\n"
+            "• `ntn_abc123def456...` (new format)\n"
+            "• `secret_abc123def456...` (legacy format)\n\n"
             "Get your token from [notion.so/my-integrations](https://notion.so/my-integrations)"
         )
     
