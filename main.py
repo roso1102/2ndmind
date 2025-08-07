@@ -129,6 +129,16 @@ async def reset_webhook():
 async def telegram_webhook(request: Request):
     """Handle incoming Telegram webhook"""
     log("🔍 Webhook endpoint hit via POST method")
+    return await handle_telegram_webhook(request)
+
+@app.post("/telegram")
+async def telegram_webhook_alt(request: Request):
+    """Alternative webhook endpoint for telegram-bot compatibility"""
+    log("🔍 /telegram endpoint hit via POST method")
+    return await handle_telegram_webhook(request)
+
+async def handle_telegram_webhook(request: Request):
+    """Actual webhook processing logic"""
     chat_id = None
     user_id = None
     
