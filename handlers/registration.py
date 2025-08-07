@@ -245,18 +245,24 @@ def validate_registration_inputs(notion_token: str, db_notes: str, db_links: str
     """Validate registration inputs and return error message if invalid."""
     
     # Validate Notion token format - support both new ntn_ and legacy secret_ formats
-    legacy_format = re.match(r'^secret_[a-zA-Z0-9]{43}$', notion_token)
-    new_format = re.match(r'^ntn_[a-zA-Z0-9]{43}$', notion_token)
+    # Allow flexible character length after prefix (Notion tokens can vary)
+    legacy_format = re.match(r'^secret_[a-zA-Z0-9]+$', notion_token)
+    new_format = re.match(r'^ntn_[a-zA-Z0-9]+$', notion_token)
     
-    if not (legacy_format or new_format):
+    # Ensure minimum reasonable length (prefix + at least 20 chars)
+    min_length_check = len(notion_token) >= 25
+    
+    if not (legacy_format or new_format) or not min_length_check:
         return (
             "❌ **Invalid Notion Token**\n\n"
             "Notion tokens should start with either:\n"
-            "• `ntn_` (new format) followed by 43 characters\n"
-            "• `secret_` (legacy format) followed by 43 characters\n\n"
+            "• `ntn_` (new format) followed by alphanumeric characters\n"
+            "• `secret_` (legacy format) followed by alphanumeric characters\n\n"
             "Examples:\n"
             "• `ntn_abc123def456...` (new format)\n"
             "• `secret_abc123def456...` (legacy format)\n\n"
+            f"Your token length: {len(notion_token)} characters\n"
+            f"Token format detected: {'✅' if (legacy_format or new_format) else '❌'}\n\n"
             "Get your token from [notion.so/my-integrations](https://notion.so/my-integrations)"
         )
     
