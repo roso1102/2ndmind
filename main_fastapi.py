@@ -92,10 +92,10 @@ async def telegram_webhook(request: Request):
     try:
         # Parse the incoming webhook data
         data = await request.json()
-        log(f"Received webhook: {data}")
+        log(f"🔍 Received webhook: {data}")
         
         if "message" not in data:
-            log("No message in webhook data", level="WARNING")
+            log("⚠️ No message in webhook data", level="WARNING")
             return {"ok": True}
         
         message = data["message"]
@@ -105,14 +105,27 @@ async def telegram_webhook(request: Request):
         # Handle text messages
         if "text" in message:
             text = message["text"]
-            log(f"Handling message: {text} from user {user_id}")
+            log(f"📝 Raw text received: '{text}' (type: {type(text)})")
+            log(f"📝 Text starts with '/': {text.startswith('/')}")
+            log(f"📝 Text length: {len(text)}")
+            log(f"📝 First character: '{text[0] if text else 'EMPTY'}'")
             
-            # Handle commands
-            if text.startswith("/"):
-                cmd = text.split()[0].lower()
-                log(f"🔧 Detected command: '{cmd}' from full text: '{text}'")
+            # ENHANCED DEBUG: Check for hidden characters
+            text_repr = repr(text)
+            log(f"📝 Text repr: {text_repr}")
+            
+            # Clean the text of any potential hidden characters
+            clean_text = text.strip()
+            log(f"📝 Clean text: '{clean_text}'")
+            log(f"📝 Clean text starts with '/': {clean_text.startswith('/')}")
+            
+            # Handle commands - USE CLEAN TEXT
+            if clean_text.startswith("/"):
+                cmd = clean_text.split()[0].lower()
+                log(f"🎯 COMMAND DETECTED: '{cmd}' from clean text: '{clean_text}'")
                 
                 if cmd == "/start":
+                    log("🚀 Processing /start command")
                     await send_message(chat_id, 
                         "👋 Welcome to MySecondMind!\n\n"
                         "I'm your AI-powered personal assistant. I can help you with:\n"
@@ -123,6 +136,7 @@ async def telegram_webhook(request: Request):
                         "Just start chatting with me naturally!")
                     
                 elif cmd == "/help":
+                    log("❓ Processing /help command")
                     help_text = """
 🤖 *MySecondMind Help*
 
@@ -149,7 +163,8 @@ Try saying things like:
                     await send_message(chat_id, help_text)
 
                 elif cmd == "/register":
-                    log(f"🎯 /register command detected - creating mock objects")
+                    log(f"🎯 REGISTER COMMAND DETECTED - Processing for user {user_id}")
+                    
                     # Create mock update object for registration handler
                     class MockUpdate:
                         def __init__(self, text, chat_id, user_id, username):
@@ -162,7 +177,7 @@ Try saying things like:
                             self.chat_id = chat_id
                             
                         async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
-                            log(f"📤 Sending reply: {response[:100]}...")
+                            log(f"📤 REGISTER: Sending reply: {response[:100]}...")
                             await send_message(self.chat_id, response)
                     
                     class MockUser:
@@ -171,34 +186,37 @@ Try saying things like:
                             self.username = username
                     
                     try:
-                        log(f"🔧 Processing /register command for user {user_id}")
-                        mock_update = MockUpdate(text, chat_id, user_id, message.get("from", {}).get("username"))
-                        log(f"🔧 Calling handle_register_command with mock_update")
+                        log(f"🔧 Creating mock update for /register")
+                        mock_update = MockUpdate(clean_text, chat_id, user_id, message.get("from", {}).get("username"))
+                        log(f"🔧 Calling handle_register_command")
                         await handle_register_command(mock_update)
-                        log(f"✅ /register command completed for user {user_id}")
+                        log(f"✅ /register command completed successfully")
                     except Exception as e:
                         log(f"❌ Error in /register command: {e}", "ERROR")
                         await send_message(chat_id, f"❌ Registration failed: {str(e)}")
                     
                 elif cmd == "/status":
+                    log("📊 Processing /status command")
                     await send_message(chat_id, 
                         "🟢 MySecondMind Status: ONLINE\n"
                         f"🕐 Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
                         "💚 All systems operational!")
                     
                 elif cmd == "/health":
+                    log("🏥 Processing /health command")
                     await send_message(chat_id, "🟢 Bot is healthy and running!")
                 
                 else:
-                    # Unknown command
+                    log(f"❓ Unknown command: {cmd}")
                     await send_message(chat_id, f"❓ Unknown command: {cmd}\n\nUse /help to see available commands.")
                 
-                # CRITICAL FIX: Return here after handling ANY command
+                log(f"✅ Command '{cmd}' processing complete - RETURNING")
+                # CRITICAL: Return here after handling ANY command
                 return {"ok": True}
             
             # Process non-command messages with AI
-            # This section will ONLY execute for non-command messages now
             else:
+                log(f"💭 NATURAL LANGUAGE: Processing non-command text: '{clean_text}'")
                 try:
                     # Create a mock update object for the handler
                     class MockUpdate:
@@ -225,22 +243,25 @@ Try saying things like:
                             self.username = username
                     
                     # Check if user is registered before processing natural language
-                    mock_update = MockUpdate(text, chat_id, user_id, message.get("from", {}).get("username"))
+                    mock_update = MockUpdate(clean_text, chat_id, user_id, message.get("from", {}).get("username"))
                     
                     # For natural language processing, check registration first
                     if not await check_user_registration(mock_update):
+                        log("📝 User not registered - registration prompt sent")
                         return {"ok": True}  # Registration prompt already sent
                     
+                    log("🤖 Processing with natural language handler")
                     # Process with natural language handler
                     await process_natural_message(mock_update, None)
                     
                 except Exception as e:
-                    log(f"Error processing natural language: {e}", level="ERROR")
+                    log(f"❌ Error processing natural language: {e}", level="ERROR")
                     await send_message(chat_id, 
                         "I understand your message, but I'm having trouble processing it right now. "
                         "Please try again!")
         
         else:
+            log("📎 Non-text message received")
             # Handle non-text messages
             await send_message(chat_id, 
                 "I received your message! Currently I work best with text messages. "
