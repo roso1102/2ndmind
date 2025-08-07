@@ -51,8 +51,22 @@ def main():
     logger.info("📱 Available commands: /start, /help, /status, /register")
     logger.info("🤖 AI-powered natural language processing enabled")
     
-    # Run the bot
-    application.run_polling(allowed_updates=None)
+    # Check if running on Render (production) or locally
+    port = int(os.getenv('PORT', 0))
+    if port:
+        # Production mode: Use webhooks
+        webhook_url = f"https://mymind.onrender.com"
+        logger.info(f"🌐 Starting webhook mode on port {port}")
+        application.run_webhook(
+            listen="0.0.0.0",
+            port=port,
+            webhook_url=webhook_url,
+            allowed_updates=None
+        )
+    else:
+        # Development mode: Use polling
+        logger.info("🔄 Starting polling mode for development")
+        application.run_polling(allowed_updates=None)
 
 if __name__ == '__main__':
     main()
