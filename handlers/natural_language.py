@@ -57,16 +57,19 @@ class IntentClassifier:
         prompt = f"""
 Classify this message into ONE of these intents:
 
-1. TASK - Creating todos, assignments, or action items
-2. NOTE - Saving information, facts, or thoughts  
-3. REMINDER - Setting time-based alerts or notifications
-4. QUESTION - Asking for information or help
-5. OTHER - Everything else
+1. GREETING - Hello, hi, greetings, casual conversation starters
+2. LINK - URLs, "read later", "save this link", web addresses
+3. NOTE - Saving information, ideas, thoughts, facts to remember
+4. TASK - Creating todos, assignments, action items, things to do
+5. REMINDER - Setting time-based alerts, "remind me", scheduled notifications
+6. QUESTION - Asking for information, help, searching saved content ("what did I save about...")
+7. FILE - References to uploading, sharing, or processing files/documents
+8. OTHER - Everything else that doesn't fit above categories
 
 Message: "{message}"
 
 Respond ONLY with a JSON object like this:
-{{"intent": "TASK", "confidence": 0.95, "reasoning": "User wants to create a todo"}}
+{{"intent": "NOTE", "confidence": 0.95, "reasoning": "User wants to save information for later"}}
 """
 
         response = self.groq_client.chat.completions.create(
@@ -93,32 +96,44 @@ Respond ONLY with a JSON object like this:
         
         message_lower = message.lower()
         
-        # Task keywords
-        task_keywords = ['todo', 'task', 'do', 'need to', 'should', 'must', 'complete', 'finish', 'work on']
-        if any(keyword in message_lower for keyword in task_keywords):
-            return {"intent": "TASK", "confidence": 0.7, "reasoning": "Keyword match for task"}
-        
-        # Note keywords  
-        note_keywords = ['note', 'remember', 'save', 'keep', 'record', 'write down', 'important']
-        if any(keyword in message_lower for keyword in note_keywords):
-            return {"intent": "NOTE", "confidence": 0.7, "reasoning": "Keyword match for note"}
-        
-        # Reminder keywords
-        reminder_keywords = ['remind', 'alert', 'tomorrow', 'later', 'at', 'clock', 'time', 'schedule']
-        if any(keyword in message_lower for keyword in reminder_keywords):
-            return {"intent": "REMINDER", "confidence": 0.7, "reasoning": "Keyword match for reminder"}
-        
-        # Question keywords
-        question_keywords = ['?', 'what', 'how', 'when', 'where', 'why', 'who', 'help', 'explain']
-        if any(keyword in message_lower for keyword in question_keywords):
-            return {"intent": "QUESTION", "confidence": 0.7, "reasoning": "Keyword match for question"}
+        # Link detection (URLs, read later patterns)
+        import re
+        url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+        link_keywords = ['read later', 'save link', 'bookmark', 'check out', 'www.', '.com', '.org', '.net']
+        if re.search(url_pattern, message) or any(keyword in message_lower for keyword in link_keywords):
+            return {"intent": "LINK", "confidence": 0.9, "reasoning": "URL or link-related keywords detected"}
         
         # Greeting keywords
         greeting_keywords = ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'greetings', 'howdy', 'sup', 'yo']
         if any(keyword in message_lower for keyword in greeting_keywords):
             return {"intent": "GREETING", "confidence": 0.8, "reasoning": "Greeting detected"}
         
-        return {"intent": "OTHER", "confidence": 0.5, "reasoning": "No keyword matches"}
+        # Reminder keywords (time-based, scheduling)
+        reminder_keywords = ['remind me', 'alert me', 'tomorrow', 'later', 'at ', 'clock', 'schedule', 'appointment', 'meeting', 'deadline', 'due']
+        if any(keyword in message_lower for keyword in reminder_keywords):
+            return {"intent": "REMINDER", "confidence": 0.8, "reasoning": "Time-based reminder keywords detected"}
+        
+        # Task keywords (action-oriented)
+        task_keywords = ['todo', 'task', 'need to do', 'should do', 'must do', 'complete', 'finish', 'work on', 'get done']
+        if any(keyword in message_lower for keyword in task_keywords):
+            return {"intent": "TASK", "confidence": 0.7, "reasoning": "Task/action keywords detected"}
+        
+        # Question keywords (seeking information)
+        question_keywords = ['?', 'what did i save', 'find', 'search', 'what', 'how', 'when', 'where', 'why', 'who', 'help me find']
+        if any(keyword in message_lower for keyword in question_keywords):
+            return {"intent": "QUESTION", "confidence": 0.7, "reasoning": "Question or search keywords detected"}
+        
+        # Note keywords (saving information, ideas)
+        note_keywords = ['note', 'remember', 'save', 'keep', 'record', 'write down', 'important', 'idea', 'thought', 'learned']
+        if any(keyword in message_lower for keyword in note_keywords):
+            return {"intent": "NOTE", "confidence": 0.7, "reasoning": "Note/save keywords detected"}
+        
+        # File keywords (document handling)
+        file_keywords = ['file', 'document', 'pdf', 'image', 'upload', 'attach', 'photo', 'screenshot']
+        if any(keyword in message_lower for keyword in file_keywords):
+            return {"intent": "FILE", "confidence": 0.7, "reasoning": "File/document keywords detected"}
+        
+        return {"intent": "OTHER", "confidence": 0.5, "reasoning": "No specific keyword patterns matched"}
 
 # Global classifier instance
 classifier = IntentClassifier()
@@ -141,16 +156,20 @@ async def process_natural_message(update, context=None) -> None:
         confidence = classification['confidence']
         
         # Route based on intent
-        if intent == "TASK":
-            await handle_task_intent(update, context, user_message, classification)
+        if intent == "GREETING":
+            await handle_greeting_intent(update, context, user_message, classification)
+        elif intent == "LINK":
+            await handle_link_intent(update, context, user_message, classification)
         elif intent == "NOTE":
             await handle_note_intent(update, context, user_message, classification)
+        elif intent == "TASK":
+            await handle_task_intent(update, context, user_message, classification)
         elif intent == "REMINDER":
             await handle_reminder_intent(update, context, user_message, classification)
         elif intent == "QUESTION":
             await handle_question_intent(update, context, user_message, classification)
-        elif intent == "GREETING":
-            await handle_greeting_intent(update, context, user_message, classification)
+        elif intent == "FILE":
+            await handle_file_intent(update, context, user_message, classification)
         else:
             await handle_other_intent(update, context, user_message, classification)
             
@@ -160,33 +179,37 @@ async def process_natural_message(update, context=None) -> None:
             "🤔 I had trouble understanding that. Could you try rephrasing or use a specific command like /help?"
         )
 
-async def handle_task_intent(update, context, message: str, classification: Dict) -> None:
-    """Handle task creation requests."""
-    
-    confidence = classification['confidence']
-    
-    response = f"📋 **Task Detected** (confidence: {confidence:.0%})\n\n"
-    response += f"I understand you want to create a task: *{message}*\n\n"
-    response += "🚧 Task management is coming soon! For now, I've noted this as:\n"
-    response += f"• **Task**: {message}\n"
-    response += f"• **Created**: Now\n"
-    response += f"• **Status**: Pending\n\n"
-    response += "💡 *Soon you'll be able to set due dates, priorities, and get reminders!*"
-    
-    await update.message.reply_text(response, parse_mode='Markdown')
-
 async def handle_note_intent(update, context, message: str, classification: Dict) -> None:
     """Handle note saving requests."""
     
     confidence = classification['confidence']
     
-    response = f"📝 **Note Detected** (confidence: {confidence:.0%})\n\n"
-    response += f"I'll save this note: *{message}*\n\n"
-    response += "🚧 Note storage is coming soon! For now, I've temporarily noted:\n"
-    response += f"• **Note**: {message}\n"
-    response += f"• **Saved**: Now\n"
-    response += f"• **Tags**: Auto-generated\n\n"
-    response += "💡 *Soon you'll have searchable notes with smart tagging!*"
+    response = f"� **Note/Idea Detected** (confidence: {confidence:.0%})\n\n"
+    response += f"I'll capture this thought: *{message}*\n\n"
+    response += "🚧 **Personal Knowledge Base** coming soon!\n\n"
+    response += "**What I'll do with your note:**\n"
+    response += f"• 💾 **Save**: Store in your personal Notion workspace\n"
+    response += f"• 🏷️ **Tag**: Auto-generate relevant tags and categories\n"
+    response += f"• 🔍 **Index**: Make it searchable for future recall\n"
+    response += f"• 🔁 **Resurface**: Bring it back when relevant\n\n"
+    response += "💡 *Soon you'll have a true \"Second Brain\" for all your thoughts!*"
+    
+    await update.message.reply_text(response, parse_mode='Markdown')
+
+async def handle_task_intent(update, context, message: str, classification: Dict) -> None:
+    """Handle task creation requests."""
+    
+    confidence = classification['confidence']
+    
+    response = f"� **Task/Action Detected** (confidence: {confidence:.0%})\n\n"
+    response += f"I understand you need to: *{message}*\n\n"
+    response += "🚧 **Smart Task Management** coming soon!\n\n"
+    response += "**What I'll help you with:**\n"
+    response += f"• ✅ **Track**: Save in your personal task database\n"
+    response += f"• ⏰ **Schedule**: Set deadlines and reminders\n"
+    response += f"• 📈 **Prioritize**: Smart urgency detection\n"
+    response += f"• 🔔 **Remind**: Proactive notifications when due\n\n"
+    response += "💡 *Soon you'll have intelligent task management with natural language!*"
     
     await update.message.reply_text(response, parse_mode='Markdown')
 
@@ -196,12 +219,14 @@ async def handle_reminder_intent(update, context, message: str, classification: 
     confidence = classification['confidence']
     
     response = f"⏰ **Reminder Detected** (confidence: {confidence:.0%})\n\n"
-    response += f"I want to set a reminder: *{message}*\n\n"
-    response += "🚧 Smart reminders are coming soon! For now, I've noted:\n"
-    response += f"• **Reminder**: {message}\n"
-    response += f"• **Requested**: Now\n"
-    response += f"• **Status**: Pending setup\n\n"
-    response += "💡 *Soon you'll get intelligent time-based reminders!*"
+    response += f"I want to remind you: *{message}*\n\n"
+    response += "🚧 **Natural Language Scheduling** coming soon!\n\n"
+    response += "**Smart Features I'll offer:**\n"
+    response += f"• 🕐 **Time Parsing**: \"tomorrow at 3pm\", \"next Friday\", \"in 2 hours\"\n"
+    response += f"• 📅 **Smart Scheduling**: Integrate with your daily planning\n"
+    response += f"• 🔔 **Contextual Alerts**: Reminders with full context\n"
+    response += f"• 🌅 **Daily Briefing**: Include in morning summaries\n\n"
+    response += "💡 *Soon you'll set reminders just by talking naturally!*"
     
     await update.message.reply_text(response, parse_mode='Markdown')
 
@@ -210,15 +235,18 @@ async def handle_question_intent(update, context, message: str, classification: 
     
     confidence = classification['confidence']
     
-    response = f"❓ **Question Detected** (confidence: {confidence:.0%})\n\n"
+    response = f"❓ **Question/Search Detected** (confidence: {confidence:.0%})\n\n"
     response += f"Your question: *{message}*\n\n"
-    response += "🚧 Smart Q&A is coming soon! For now, here's what I can do:\n\n"
-    response += "**Available Commands:**\n"
-    response += "• `/start` - Get started\n"
-    response += "• `/help` - Show help\n"
-    response += "• `/status` - Check bot status\n"
-    response += "• `/health` - Health check\n\n"
-    response += "💡 *Soon I'll answer questions using your personal knowledge base!*"
+    response += "🚧 **Personal Knowledge Search** coming soon!\n\n"
+    response += "**What I'll be able to do:**\n"
+    response += f"• 🧠 **Search Memory**: \"What did I save about productivity?\"\n"
+    response += f"• 🔍 **Semantic Search**: Find related ideas and concepts\n"
+    response += f"• 📊 **Smart Insights**: Summarize patterns in your data\n"
+    response += f"• 🎯 **Contextual Answers**: Responses based on your saved knowledge\n\n"
+    response += "**For now, try these commands:**\n"
+    response += "• `/help` - Available features\n"
+    response += "• `/status` - Bot health\n\n"
+    response += "💡 *Soon I'll be your personal knowledge search engine!*"
     
     await update.message.reply_text(response, parse_mode='Markdown')
 
@@ -244,10 +272,58 @@ async def handle_greeting_intent(update, context, message: str, classification: 
     response += "📋 *\"I need to finish my report by Friday\"*\n"
     response += "📝 *\"Remember my doctor's appointment is at 3pm\"*\n"
     response += "⏰ *\"Remind me to call mom tomorrow\"*\n"
-    response += "❓ *\"What's the weather like?\"*\n\n"
+    response += "🔗 *\"Read later: https://example.com\"*\n"
+    response += "❓ *\"What did I save about productivity?\"*\n\n"
     response += "Or use commands like `/help` to see all options!"
     
     await update.message.reply_text(response)
+
+async def handle_link_intent(update, context, message: str, classification: Dict) -> None:
+    """Handle link saving requests."""
+    
+    confidence = classification['confidence']
+    
+    # Extract URL if present
+    import re
+    url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+    urls = re.findall(url_pattern, message)
+    
+    response = f"🔗 **Link Detected** (confidence: {confidence:.0%})\n\n"
+    
+    if urls:
+        response += f"I'll save this link: {urls[0]}\n\n"
+        response += "🚧 Link saving with metadata extraction is coming soon!\n\n"
+        response += f"• **URL**: {urls[0]}\n"
+        response += f"• **Context**: {message}\n"
+        response += f"• **Saved**: Now\n"
+        response += f"• **Tags**: Auto-generated from content\n\n"
+        response += "💡 *Soon I'll automatically extract titles, summaries, and smart tags!*"
+    else:
+        response += f"I detected you want to save a link: *{message}*\n\n"
+        response += "🚧 Smart link detection is coming soon!\n\n"
+        response += "For now, you can:\n"
+        response += "• Send direct URLs: `https://example.com`\n"
+        response += "• Use patterns: `Read later: https://article.com`\n"
+        response += "• Add context: `Bookmark this for the project: https://resource.com`"
+    
+    await update.message.reply_text(response, parse_mode='Markdown')
+
+async def handle_file_intent(update, context, message: str, classification: Dict) -> None:
+    """Handle file upload and processing requests."""
+    
+    confidence = classification['confidence']
+    
+    response = f"📄 **File Intent Detected** (confidence: {confidence:.0%})\n\n"
+    response += f"Message: *{message}*\n\n"
+    response += "🚧 Advanced file processing is coming soon!\n\n"
+    response += "**Planned Features:**\n"
+    response += "• 📄 **PDF Processing**: Auto-compress and extract text\n"
+    response += "• 🖼️ **Image OCR**: Extract text from screenshots\n"
+    response += "• 📁 **Smart Organization**: Auto-categorize and tag files\n"
+    response += "• 🔍 **Content Search**: Find text within uploaded documents\n\n"
+    response += "For now, you can upload files directly and I'll acknowledge them!"
+    
+    await update.message.reply_text(response, parse_mode='Markdown')
 
 async def handle_other_intent(update, context, message: str, classification: Dict) -> None:
     """Handle other/unclassified messages."""
@@ -255,14 +331,16 @@ async def handle_other_intent(update, context, message: str, classification: Dic
     confidence = classification['confidence']
     reasoning = classification.get('reasoning', 'Unknown')
     
-    response = f"💭 **General Message** (confidence: {confidence:.0%})\n\n"
+    response = f"💭 **Processing Your Message** (confidence: {confidence:.0%})\n\n"
     response += f"You said: *{message}*\n\n"
-    response += "I'm still learning to understand all types of messages! "
-    response += "Here are some things you can try:\n\n"
-    response += "**For Tasks**: *\"I need to finish my project\"*\n"
-    response += "**For Notes**: *\"Remember that the meeting is at 3pm\"*\n"
-    response += "**For Reminders**: *\"Remind me to call mom tomorrow\"*\n"
-    response += "**For Questions**: *\"What's the weather like?\"*\n\n"
-    response += f"🤖 *Classification reasoning: {reasoning}*"
+    response += "I'm still learning to understand all types of messages! Here's how you can help me:\n\n"
+    response += "**📝 For Notes/Ideas**: *\"I learned that quantum computers use qubits\"*\n"
+    response += "**📋 For Tasks**: *\"I need to finish my project by Friday\"*\n"
+    response += "**⏰ For Reminders**: *\"Remind me to call mom tomorrow at 6pm\"*\n"
+    response += "**🔗 For Links**: *\"Read later: https://interesting-article.com\"*\n"
+    response += "**❓ For Questions**: *\"What did I save about productivity?\"*\n"
+    response += "**👋 For Chat**: *\"Hello!\" or \"How are you?\"*\n\n"
+    response += f"🤖 *Why I'm unsure: {reasoning}*\n\n"
+    response += "💡 *The more specific you are, the better I can help organize your Second Brain!*"
     
     await update.message.reply_text(response, parse_mode='Markdown')
