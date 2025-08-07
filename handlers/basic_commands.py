@@ -26,10 +26,10 @@ I'm your personal AI assistant that acts as your "second brain" 🤖
 • 🔄 Resurface forgotten memories
 
 **Quick Start:**
-1. First, you need to register: `/register`
-2. Then just talk to me naturally!
+1. Register with one simple command: `/register`
+2. Start saving your thoughts immediately!
 
-Try saying: *"Remind me to call mom tomorrow"*
+Try saying: *"I learned that AI is revolutionizing productivity"*
 
 Type `/help` for all commands.
 """
