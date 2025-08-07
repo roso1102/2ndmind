@@ -31,7 +31,7 @@ WEBHOOK_URL = os.getenv('RENDER_EXTERNAL_URL', 'https://mymind-924q.onrender.com
 API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
 # Import handlers
-from handlers.natural_language import process_natural_message
+# from handlers.natural_language import process_natural_message  # Temporarily disabled
 from handlers.registration import handle_register_command, check_user_registration
 
 def log(message, level="INFO"):
@@ -232,8 +232,9 @@ Try saying things like:
                     if not await check_user_registration(mock_update):
                         return {"ok": True}  # Registration prompt already sent
                     
-                    # Process with natural language handler
-                    await process_natural_message(mock_update, None)
+                    # Process with natural language handler - TEMPORARILY DISABLED
+                    # await process_natural_message(mock_update, None)
+                    await send_message(chat_id, "🤖 I received your message! Natural language processing is temporarily disabled while we debug an issue. Use /help to see available commands.")
                     
                 except Exception as e:
                     log(f"❌ Error processing natural language: {e}", level="ERROR")
