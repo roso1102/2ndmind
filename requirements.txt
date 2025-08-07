@@ -1,6 +1,6 @@
 # Essential Dependencies for MySecondMind Bot
-python-telegram-bot==20.7
+python-telegram-bot==21.9
 groq==0.4.1
 python-dotenv==1.0.0
-cryptography==41.0.7
-requests==2.31.0
+cryptography==43.0.3
+requests==2.32.3
