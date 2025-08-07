@@ -318,10 +318,9 @@ Try saying things like:
                     # Check if user is registered before processing natural language
                     mock_update = MockUpdate(text, chat_id, user_id, message.get("from", {}).get("username"))
                     
-                    # For natural language processing, temporarily skip registration check for testing
-                    # TODO: Re-enable registration check once Notion integration is complete
-                    # if not await check_user_registration(mock_update):
-                    #     return {"ok": True}  # Registration prompt already sent
+                    # For natural language processing, check registration first
+                    if not await check_user_registration(mock_update):
+                        return {"ok": True}  # Registration prompt already sent
                     
                     # Process with natural language handler
                     await process_natural_message(mock_update, None)

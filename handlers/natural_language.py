@@ -3,7 +3,49 @@
 🧠 Natural Language Processing Handler for MySecondMind
 
 This module handles AI-powered intent classification and natural language processing
-using Groq's Llama3 model for understanding user messages and routing them appropriately.
+using Gasync def handle_note_intent(update, casync def handle_task_intent(update, context, message: str, classification: Dict) -> None:
+    """Handle task creation requests."""
+    
+    confidence = classification['confidence']
+    user_id = str(update.effective_user.id)
+    
+    # Try to save to Notion
+    from handlers.notion_client import notion_client
+    result = await notion_client.save_task(user_id, message, classification)
+    
+    if result["success"]:
+        response = f"📋 **Task Saved Successfully!** (confidence: {confidence:.0%})\n\n"
+        response += f"✅ **Added to your task list**: *{message}*\n\n"
+        response += f"🔗 **Page URL**: {result['url']}\n\n"
+        response += "🎯 Your task is now tracked in your Notion workspace!"
+    else:
+        response = f"📋 **Task Detected** (confidence: {confidence:.0%})\n\n"
+        response += f"I understand you need to: *{message}*\n\n"
+        response += f"❌ **Save failed**: {result.get('error', 'Unknown error')}\n\n"
+        response += "💡 Make sure you're registered with `/register` and your Notion workspace is set up correctly."
+    
+    await update.message.reply_text(response, parse_mode='Markdown') str, classification: Dict) -> None:
+    """Handle note saving requests."""
+    
+    confidence = classification['confidence']
+    user_id = str(update.effective_user.id)
+    
+    # Try to save to Notion
+    from handlers.notion_client import notion_client
+    result = await notion_client.save_note(user_id, message, classification)
+    
+    if result["success"]:
+        response = f"📝 **Note Saved Successfully!** (confidence: {confidence:.0%})\n\n"
+        response += f"💾 **Saved to Notion**: *{message}*\n\n"
+        response += f"🔗 **Page URL**: {result['url']}\n\n"
+        response += "✨ Your note is now part of your Second Brain and will be available for future search and resurfacing!"
+    else:
+        response = f"📝 **Note Detected** (confidence: {confidence:.0%})\n\n"
+        response += f"I want to save: *{message}*\n\n"
+        response += f"❌ **Save failed**: {result.get('error', 'Unknown error')}\n\n"
+        response += "💡 Make sure you're registered with `/register` and your Notion workspace is set up correctly."
+    
+    await update.message.reply_text(response, parse_mode='Markdown')el for understanding user messages and routing them appropriately.
 """
 
 import os
@@ -217,16 +259,24 @@ async def handle_reminder_intent(update, context, message: str, classification: 
     """Handle reminder creation requests."""
     
     confidence = classification['confidence']
+    user_id = str(update.effective_user.id)
     
-    response = f"⏰ **Reminder Detected** (confidence: {confidence:.0%})\n\n"
-    response += f"I want to remind you: *{message}*\n\n"
-    response += "🚧 **Natural Language Scheduling** coming soon!\n\n"
-    response += "**Smart Features I'll offer:**\n"
-    response += f"• 🕐 **Time Parsing**: \"tomorrow at 3pm\", \"next Friday\", \"in 2 hours\"\n"
-    response += f"• 📅 **Smart Scheduling**: Integrate with your daily planning\n"
-    response += f"• 🔔 **Contextual Alerts**: Reminders with full context\n"
-    response += f"• 🌅 **Daily Briefing**: Include in morning summaries\n\n"
-    response += "💡 *Soon you'll set reminders just by talking naturally!*"
+    # Try to save to Notion
+    from handlers.notion_client import notion_client
+    result = await notion_client.save_reminder(user_id, message, classification)
+    
+    if result["success"]:
+        response = f"⏰ **Reminder Saved Successfully!** (confidence: {confidence:.0%})\n\n"
+        response += f"🔔 **Reminder set**: *{message}*\n\n"
+        response += f"� **Page URL**: {result['url']}\n\n"
+        if result.get('due_date'):
+            response += f"📅 **Due Date**: {result['due_date']}\n\n"
+        response += "⏱️ Your reminder is now stored in your Notion workspace!"
+    else:
+        response = f"⏰ **Reminder Detected** (confidence: {confidence:.0%})\n\n"
+        response += f"I want to remind you: *{message}*\n\n"
+        response += f"❌ **Save failed**: {result.get('error', 'Unknown error')}\n\n"
+        response += "💡 Make sure you're registered with `/register` and your Notion workspace is set up correctly."
     
     await update.message.reply_text(response, parse_mode='Markdown')
 
@@ -282,29 +332,40 @@ async def handle_link_intent(update, context, message: str, classification: Dict
     """Handle link saving requests."""
     
     confidence = classification['confidence']
+    user_id = str(update.effective_user.id)
     
     # Extract URL if present
     import re
     url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     urls = re.findall(url_pattern, message)
     
-    response = f"🔗 **Link Detected** (confidence: {confidence:.0%})\n\n"
-    
     if urls:
-        response += f"I'll save this link: {urls[0]}\n\n"
-        response += "🚧 Link saving with metadata extraction is coming soon!\n\n"
-        response += f"• **URL**: {urls[0]}\n"
-        response += f"• **Context**: {message}\n"
-        response += f"• **Saved**: Now\n"
-        response += f"• **Tags**: Auto-generated from content\n\n"
-        response += "💡 *Soon I'll automatically extract titles, summaries, and smart tags!*"
+        url = urls[0]
+        context_text = message.replace(url, "").strip()
+        
+        # Try to save to Notion
+        from handlers.notion_client import notion_client
+        result = await notion_client.save_link(user_id, url, context_text, classification)
+        
+        if result["success"]:
+            response = f"� **Link Saved Successfully!** (confidence: {confidence:.0%})\n\n"
+            response += f"💾 **URL**: {url}\n"
+            if result.get('title'):
+                response += f"📄 **Title**: {result['title']}\n"
+            if context_text:
+                response += f"📝 **Context**: {context_text}\n"
+            response += f"\n🔗 **Notion Page**: {result['url']}\n\n"
+            response += "🌟 Your link is now saved in your read-later collection!"
+        else:
+            response = f"🔗 **Link Detected** (confidence: {confidence:.0%})\n\n"
+            response += f"URL: {url}\n\n"
+            response += f"❌ **Save failed**: {result.get('error', 'Unknown error')}\n\n"
+            response += "💡 Make sure you're registered with `/register` and your Notion workspace is set up correctly."
     else:
-        response += f"I detected you want to save a link: *{message}*\n\n"
-        response += "🚧 Smart link detection is coming soon!\n\n"
-        response += "For now, you can:\n"
-        response += "• Send direct URLs: `https://example.com`\n"
-        response += "• Use patterns: `Read later: https://article.com`\n"
-        response += "• Add context: `Bookmark this for the project: https://resource.com`"
+        response = f"🔗 **Link Intent Detected** (confidence: {confidence:.0%})\n\n"
+        response += f"Message: *{message}*\n\n"
+        response += "❌ **No URL found** in your message.\n\n"
+        response += "💡 Include a URL like: `https://example.com` or `Read later: https://article.com`"
     
     await update.message.reply_text(response, parse_mode='Markdown')
 

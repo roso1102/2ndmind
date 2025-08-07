@@ -52,6 +52,78 @@ async def handle_register_command(update, context=None) -> None:
     
     # Extract arguments
     notion_token = parts[1]
+    db_notes = parts[2]
+    db_links = parts[3]
+    db_reminders = parts[4]
+    
+    logger.info(f"🔧 Registration attempt with databases: notes={db_notes[:8]}..., links={db_links[:8]}..., reminders={db_reminders[:8]}...")
+    
+    # Validate input format
+    validation_error = validate_registration_inputs(notion_token, db_notes, db_links, db_reminders)
+    if validation_error:
+        await update.message.reply_text(validation_error, parse_mode='Markdown')
+        return
+    
+    # Set up Notion workspace
+    from handlers.notion_client import notion_client
+    
+    await update.message.reply_text(
+        "🔄 **Setting up your Notion workspace...**\n\n"
+        "This may take a few seconds while I validate your token and databases.",
+        parse_mode='Markdown'
+    )
+    
+    setup_result = notion_client.setup_user_workspace(user_id, notion_token, db_notes, db_links, db_reminders)
+    
+    if not setup_result["success"]:
+        error_msg = "❌ **Notion Workspace Setup Failed**\n\n"
+        error_msg += "**Errors encountered:**\n"
+        for error in setup_result["errors"]:
+            error_msg += f"• {error}\n"
+        error_msg += "\n💡 Please check your token and database IDs and try again."
+        
+        await update.message.reply_text(error_msg, parse_mode='Markdown')
+        return
+    
+    # Save user registration to Supabase
+    success = user_manager.register_user(
+        user_id=user_id,
+        notion_token=notion_token,
+        db_notes=db_notes,
+        db_links=db_links,
+        db_reminders=db_reminders,
+        telegram_username=username
+    )
+    
+    if success:
+        await update.message.reply_text(
+            "🎉 **Registration Successful!**\n\n"
+            "✅ Notion token validated\n"
+            "✅ All databases accessible\n"
+            "✅ Workspace connected\n"
+            "✅ User profile created\n\n"
+            "🧠 **Your Second Brain is now active!**\n\n"
+            "Try sending me:\n"
+            "📝 *\"I learned something interesting about quantum computing\"*\n"
+            "🔗 *\"Read later: https://example.com\"*\n"
+            "⏰ *\"Remind me to call mom tomorrow\"*\n"
+            "📋 *\"I need to finish my project by Friday\"*\n\n"
+            "Everything will be saved to your Notion workspace! 🚀",
+            parse_mode='Markdown'
+        )
+        logger.info(f"✅ User {user_id} successfully registered with Notion workspace")
+    else:
+        await update.message.reply_text(
+            "❌ **Registration Failed**\n\n"
+            "Notion workspace setup was successful, but I couldn't save your profile.\n\n"
+            "Please try again or contact support.",
+            parse_mode='Markdown'
+        )
+        logger.error(f"❌ Failed to save user {user_id} to database after successful Notion setup")
+        return
+    
+    # Extract arguments
+    notion_token = parts[1]
     db_notes = parts[2] 
     db_links = parts[3]
     db_reminders = parts[4]

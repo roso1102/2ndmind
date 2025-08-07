@@ -87,8 +87,8 @@ class UserManager:
             logger.error(f"❌ Failed to register user {user_id}: {e}")
             return False
     
-    def get_user(self, user_id: str) -> Optional[User]:
-        """Get user data by user ID."""
+    def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get user data by user ID in format expected by notion_client."""
         try:
             result = self.supabase.table('users').select('*').eq('user_id', user_id).eq('is_active', True).execute()
             
@@ -102,17 +102,20 @@ class UserManager:
             if row.get('encrypted_notion_token'):
                 decrypted_token = decrypt_user_token(user_id, row['encrypted_notion_token'])
             
-            return User(
-                user_id=row['user_id'],
-                telegram_username=row.get('telegram_username'),
-                notion_token=decrypted_token,
-                db_notes=row.get('db_notes'),
-                db_links=row.get('db_links'),
-                db_reminders=row.get('db_reminders'),
-                created_at=datetime.fromisoformat(row['created_at'].replace('Z', '+00:00')) if row.get('created_at') else datetime.utcnow(),
-                last_active=datetime.fromisoformat(row['last_active'].replace('Z', '+00:00')) if row.get('last_active') else datetime.utcnow(),
-                is_active=bool(row.get('is_active', True))
-            )
+            # Return in format expected by notion_client
+            return {
+                'user_id': row['user_id'],
+                'telegram_username': row.get('telegram_username'),
+                'notion_token': decrypted_token,
+                'notion_databases': {
+                    'notes': row.get('db_notes'),
+                    'links': row.get('db_links'),
+                    'reminders': row.get('db_reminders')
+                },
+                'created_at': row.get('created_at'),
+                'last_active': row.get('last_active'),
+                'is_active': bool(row.get('is_active', True))
+            }
                 
         except Exception as e:
             logger.error(f"❌ Failed to get user {user_id}: {e}")
