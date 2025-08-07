@@ -10,6 +10,8 @@ import os
 import logging
 from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram import Update
+from telegram.ext import ContextTypes
 
 # Load environment variables
 load_dotenv()
@@ -25,6 +27,10 @@ logger = logging.getLogger(__name__)
 from handlers.basic_commands import start_handler, help_handler, status_handler
 from handlers.register import register_handler
 from handlers.natural_language import process_natural_message
+
+async def health_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Health check handler for monitoring."""
+    await update.message.reply_text("🟢 Bot is healthy and running!")
 
 def main():
     """Start the MySecondMind bot."""
@@ -43,12 +49,13 @@ def main():
     application.add_handler(CommandHandler("help", help_handler))
     application.add_handler(CommandHandler("status", status_handler))
     application.add_handler(CommandHandler("register", register_handler))
+    application.add_handler(CommandHandler("health", health_handler))
     
     # Add message handlers for natural language processing
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_natural_message))
     
     logger.info("🧠 MySecondMind bot starting...")
-    logger.info("📱 Available commands: /start, /help, /status, /register")
+    logger.info("📱 Available commands: /start, /help, /status, /register, /health")
     logger.info("🤖 AI-powered natural language processing enabled")
     
     # Always use webhook mode for production deployment
@@ -59,6 +66,7 @@ def main():
     logger.info(f"🌐 Starting webhook mode on port {port}")
     logger.info(f"🔗 Webhook URL: {webhook_url}")
     logger.info(f"🔍 Environment - PORT: {os.getenv('PORT', 'Using default 10000')}")
+    logger.info("💚 Health monitoring: Send /health command to bot for status")
     
     # Webhook mode only - no polling conflicts
     application.run_webhook(
