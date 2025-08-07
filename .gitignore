@@ -44,10 +44,29 @@ Thumbs.db              # Windows
 *.tmp                  # Temporary files
 
 # ===== TESTING AND DEBUG =====
-test_*.py              # Our test files (optional - remove if you want to share tests)
+test_*.py              # Test files
 debug_*.py             # Debug files
+setup_*.py             # Setup files
+*.test                 # Test output files
 
 # ===== DEPLOYMENT SECRETS =====
 *.key                  # Any key files
 *.pem                  # Certificate files
 config.json            # Config files that might contain secrets
+DEPLOY_RENDER.md       # Deployment guide with API keys (security)
+
+# ===== DOCUMENTATION DUPLICATES =====
+readme.md              # Duplicate README (keep README_github.md)
+
+# ===== BUILD AND DISTRIBUTION =====
+env/                   # Standard venv name
+ENV/                   # Alternative env name
+.venv/                 # Alternative venv name
+lib/                   # Library directory
+lib64/                 # 64-bit library directory
+Lib/                   # Windows library directory
+libs/                  # Alternative library directory
+build/                 # Build directory
+dist/                  # Distribution directory
+*.egg-info/           # Egg info directories
+*.egg                 # Egg files

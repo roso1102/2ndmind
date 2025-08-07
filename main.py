@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 # Import our handlers
 from handlers.basic_commands import start_handler, help_handler, status_handler
 from handlers.register import register_handler
+from handlers.natural_language import process_natural_message
 
 def main():
     """Start the MySecondMind bot."""
@@ -43,16 +44,12 @@ def main():
     application.add_handler(CommandHandler("status", status_handler))
     application.add_handler(CommandHandler("register", register_handler))
     
-    # Add message handlers (for natural language processing)
-    # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
-    # application.add_handler(MessageHandler(filters.PHOTO, photo_handler))
-    # application.add_handler(MessageHandler(filters.DOCUMENT, document_handler))
-    
-    # Start the scheduler for reminders and resurfacing
-    # start_scheduler(application.bot)
+    # Add message handlers for natural language processing
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_natural_message))
     
     logger.info("🧠 MySecondMind bot starting...")
     logger.info("📱 Available commands: /start, /help, /status, /register")
+    logger.info("🤖 AI-powered natural language processing enabled")
     
     # Run the bot
     application.run_polling(allowed_updates=None)
