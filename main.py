@@ -31,8 +31,9 @@ WEBHOOK_URL = os.getenv('RENDER_EXTERNAL_URL', 'https://mymind-924q.onrender.com
 API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
 # Import handlers
-from handlers.registration import handle_register_command, check_user_registration
+from handlers.register import register_handler
 from handlers.natural_language import process_natural_message
+from models.user_management import user_manager
 
 def log(message, level="INFO"):
     """Simple logging function"""
@@ -43,8 +44,23 @@ def log(message, level="INFO"):
     else:
         logger.info(message)
 
-async def send_message(chat_id: int, text: str):
-    """Send message to Telegram chat"""
+async def check_user_registration(mock_update):
+    """Check if user is registered, send registration prompt if not."""
+    user_id = str(mock_update.effective_user.id)
+    
+    if user_manager.is_user_registered(user_id):
+        return True
+    else:
+        # Send registration prompt
+        await send_message(mock_update.effective_chat.id, 
+            "🔑 **Welcome to MySecondMind!**\n\n"
+            "Please register first by typing:\n"
+            "`/register`\n\n"
+            "This will set up your personal Second Brain! 🧠")
+        return False
+
+async def send_message(chat_id, text):
+    """Send a message to Telegram chat."""
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(f"{API_URL}/sendMessage", json={
@@ -264,7 +280,7 @@ Try saying things like:
                     
                     try:
                         mock_update = MockUpdate(text, chat_id, user_id, message.get("from", {}).get("username"))
-                        await handle_register_command(mock_update)
+                        await register_handler(mock_update, None)
                         log(f"✅ /register completed for user {user_id}")
                     except Exception as e:
                         log(f"❌ Error in /register: {e}", "ERROR")
