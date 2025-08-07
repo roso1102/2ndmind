@@ -31,8 +31,8 @@ WEBHOOK_URL = os.getenv('RENDER_EXTERNAL_URL', 'https://mymind-924q.onrender.com
 API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
 # Import handlers
-from handlers.natural_language import process_natural_message
 from handlers.registration import handle_register_command, check_user_registration
+# NOTE: Natural language processing temporarily removed for debugging
 
 def log(message, level="INFO"):
     """Simple logging function"""
@@ -107,7 +107,7 @@ async def telegram_webhook(request: Request):
         if "text" in message:
             # Handle text messages
             text = message["text"]
-            log(f"Handling message: {text} from user {user_id}")
+            log(f"🚀 NEW VERSION: Handling message: {text} from user {user_id}")
             
             # CRITICAL DEBUG: Check text properties
             log(f"🔍 DEBUG: text='{text}', type={type(text)}, repr={repr(text)}")
