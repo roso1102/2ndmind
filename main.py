@@ -83,10 +83,52 @@ async def ping():
     """Simple ping endpoint"""
     return {"ping": "pong", "timestamp": time.time()}
 
+# Add webhook debugging endpoints
+@app.get("/webhook")
+async def webhook_get():
+    """Debug: Webhook called with GET method"""
+    log("⚠️ Webhook called with GET method - this might be the 405 issue!")
+    return {"error": "Webhook should use POST method", "method": "GET"}
+
+@app.options("/webhook")
+async def webhook_options():
+    """Handle OPTIONS requests for webhook"""
+    return {"methods": ["POST"], "endpoint": "webhook"}
+
+@app.head("/webhook")
+async def webhook_head():
+    """Handle HEAD requests for webhook"""
+    return {"ok": True}
+
+@app.get("/reset-webhook")
+async def reset_webhook():
+    """Manually reset the Telegram webhook"""
+    webhook_url = f"{WEBHOOK_URL}/webhook"
+    try:
+        async with httpx.AsyncClient() as client:
+            # First delete existing webhook
+            delete_response = await client.post(f"{API_URL}/deleteWebhook")
+            delete_result = delete_response.json()
+            
+            # Then set new webhook
+            set_response = await client.post(f"{API_URL}/setWebhook", json={
+                "url": webhook_url
+            })
+            set_result = set_response.json()
+            
+            return {
+                "delete_webhook": delete_result,
+                "set_webhook": set_result,
+                "new_webhook_url": webhook_url
+            }
+    except Exception as e:
+        return {"error": str(e)}
+
 # --- Webhook handler ---
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
     """Handle incoming Telegram webhook"""
+    log("🔍 Webhook endpoint hit via POST method")
     chat_id = None
     user_id = None
     
