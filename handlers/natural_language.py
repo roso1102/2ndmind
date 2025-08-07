@@ -10,8 +10,6 @@ import os
 import logging
 import asyncio
 from typing import Dict, Optional
-from telegram import Update
-from telegram.ext import ContextTypes
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -120,7 +118,7 @@ Respond ONLY with a JSON object like this:
 # Global classifier instance
 classifier = IntentClassifier()
 
-async def process_natural_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def process_natural_message(update, context=None) -> None:
     """Process natural language messages with AI intent classification."""
     
     if not update.message or not update.message.text:
@@ -155,7 +153,7 @@ async def process_natural_message(update: Update, context: ContextTypes.DEFAULT_
             "🤔 I had trouble understanding that. Could you try rephrasing or use a specific command like /help?"
         )
 
-async def handle_task_intent(update: Update, context: ContextTypes.DEFAULT_TYPE, message: str, classification: Dict) -> None:
+async def handle_task_intent(update, context, message: str, classification: Dict) -> None:
     """Handle task creation requests."""
     
     confidence = classification['confidence']
@@ -170,7 +168,7 @@ async def handle_task_intent(update: Update, context: ContextTypes.DEFAULT_TYPE,
     
     await update.message.reply_text(response, parse_mode='Markdown')
 
-async def handle_note_intent(update: Update, context: ContextTypes.DEFAULT_TYPE, message: str, classification: Dict) -> None:
+async def handle_note_intent(update, context, message: str, classification: Dict) -> None:
     """Handle note saving requests."""
     
     confidence = classification['confidence']
@@ -185,7 +183,7 @@ async def handle_note_intent(update: Update, context: ContextTypes.DEFAULT_TYPE,
     
     await update.message.reply_text(response, parse_mode='Markdown')
 
-async def handle_reminder_intent(update: Update, context: ContextTypes.DEFAULT_TYPE, message: str, classification: Dict) -> None:
+async def handle_reminder_intent(update, context, message: str, classification: Dict) -> None:
     """Handle reminder creation requests."""
     
     confidence = classification['confidence']
@@ -200,7 +198,7 @@ async def handle_reminder_intent(update: Update, context: ContextTypes.DEFAULT_T
     
     await update.message.reply_text(response, parse_mode='Markdown')
 
-async def handle_question_intent(update: Update, context: ContextTypes.DEFAULT_TYPE, message: str, classification: Dict) -> None:
+async def handle_question_intent(update, context, message: str, classification: Dict) -> None:
     """Handle questions and help requests."""
     
     confidence = classification['confidence']
@@ -212,12 +210,12 @@ async def handle_question_intent(update: Update, context: ContextTypes.DEFAULT_T
     response += "• `/start` - Get started\n"
     response += "• `/help` - Show help\n"
     response += "• `/status` - Check bot status\n"
-    response += "• `/register` - Set up your account\n\n"
+    response += "• `/health` - Health check\n\n"
     response += "💡 *Soon I'll answer questions using your personal knowledge base!*"
     
     await update.message.reply_text(response, parse_mode='Markdown')
 
-async def handle_other_intent(update: Update, context: ContextTypes.DEFAULT_TYPE, message: str, classification: Dict) -> None:
+async def handle_other_intent(update, context, message: str, classification: Dict) -> None:
     """Handle other/unclassified messages."""
     
     confidence = classification['confidence']

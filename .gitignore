@@ -14,23 +14,24 @@ user_data.json.enc     # Specific user data file
 
 # ===== PYTHON ENVIRONMENT =====
 venv/                   # Virtual environment (too big, recreatable)
-mysecondmind_env/      # Alternative venv name
-__pycache__/           # Python cache files (ANYWHERE in project)
-*/__pycache__/         # Cache files in subdirectories
-**/__pycache__/        # Cache files in any nested directory
-*.pyc                  # Compiled Python files
-*.pyo                  # Optimized Python files
-*.pyd                  # Python extension modules
-.Python                # Python-specific files
-*.py[cod]              # Python compiled files (covers .pyc, .pyo, .pyd)
-*$py.class             # More Python compiled files
+venv/**                 # Everything inside venv directory
+mysecondmind_env/       # Alternative venv name
+__pycache__/            # Python cache files (ANYWHERE in project)
+*/__pycache__/          # Cache files in subdirectories
+**/__pycache__/         # Cache files in any nested directory
+*.pyc                   # Compiled Python files
+*.pyo                   # Optimized Python files
+*.pyd                   # Python extension modules
+.Python                 # Python-specific files
+*.py[cod]               # Python compiled files (covers .pyc, .pyo, .pyd)
+*$py.class              # More Python compiled files
 
 # ===== IDE/EDITOR FILES =====
-.vscode/               # VS Code settings (optional - you can remove this line if you want to share VS Code settings)
-.idea/                 # PyCharm settings
-*.swp                  # Vim swap files
-*.swo                  # Vim swap files
-*~                     # Temporary files
+.vscode/                # VS Code settings
+.idea/                  # PyCharm settings
+*.swp                   # Vim swap files
+*.swo                   # Vim swap files
+*~                      # Temporary files
 
 # ===== LOGS AND TEMPORARY FILES =====
 *.log                  # Log files
