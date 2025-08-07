@@ -13,6 +13,10 @@ from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 from supabase import create_client, Client
 
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
 from core.encryption import encrypt_user_token, decrypt_user_token
 
 logger = logging.getLogger(__name__)
@@ -45,11 +49,27 @@ class UserManager:
         
         try:
             # Create Supabase client with minimal parameters to avoid version conflicts
+            # Use only essential parameters to avoid proxy/auth issues
             self.supabase: Client = create_client(
                 self.supabase_url, 
                 self.supabase_key
             )
             logger.info("✅ Supabase client initialized successfully")
+        except TypeError as e:
+            if "proxy" in str(e):
+                # Handle version conflict by using older client initialization
+                logger.warning("⚠️ Using fallback Supabase client initialization")
+                try:
+                    import supabase
+                    # Direct client creation without problematic parameters
+                    self.supabase = supabase.Client(self.supabase_url, self.supabase_key)
+                    logger.info("✅ Supabase client initialized with fallback method")
+                except Exception as fallback_error:
+                    logger.error(f"❌ Fallback Supabase initialization failed: {fallback_error}")
+                    self.supabase = None
+            else:
+                logger.error(f"❌ Failed to initialize Supabase client: {e}")
+                self.supabase = None
         except Exception as e:
             logger.error(f"❌ Failed to initialize Supabase client: {e}")
             self.supabase = None

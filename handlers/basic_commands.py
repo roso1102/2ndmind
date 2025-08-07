@@ -44,23 +44,33 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 **Setup:**
 • `/start` - Welcome message
-• `/register` - Connect your Notion workspace
+• `/register` - Create your account
 • `/status` - Check bot health
 
+**View Your Content:**
+• `/notes` - View recent notes
+• `/tasks` - View recent tasks  
+• `/links` - View saved links
+• `/reminders` - View reminders
+• `/stats` - Content statistics
+
+**Search & Find:**
+• `/search <query>` - Search all content
+• `/search notes <query>` - Search notes only
+• `/search tasks urgent` - Find urgent tasks
+
 **Natural Language (Just talk!):**
-• *"Remind me to..."* - Creates tasks
-• *"I have an idea about..."* - Saves notes
-• *"Remember this: ..."* - Saves thoughts
-• Send links - Auto-summarizes
-• Send PDFs - Extracts and summarizes
-• Send screenshots - OCR text extraction
+• *"Remind me to..."* - Creates reminders
+• *"I need to finish..."* - Creates tasks
+• *"I learned that..."* - Saves notes
+• *"Read later: https://..."* - Saves links
+• Send files/images - Processes and saves
 
 **Features:**
 • 🧠 AI-powered intent understanding
-• 🔐 Encrypted, secure storage
+• 🔐 Encrypted, secure database storage
+• � Full-text search across all content
 • 🔄 Multi-user support
-• ⏰ Automatic reminders
-• 🌤️ Daily planning
 • 📱 Works entirely on Telegram
 
 **Need help?** Just ask me anything in natural language!

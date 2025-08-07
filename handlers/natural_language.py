@@ -138,6 +138,17 @@ Respond ONLY with a JSON object like this:
 # Global classifier instance
 classifier = IntentClassifier()
 
+async def get_user_storage_preference(user_id: str) -> str:
+    """Get user's storage preference (notion or obsidian)."""
+    from models.user_management import user_manager
+    
+    user = user_manager.get_user(user_id)
+    if user and user.get('storage_preference'):
+        return user['storage_preference']
+    
+    # Default to notion for backward compatibility
+    return "notion"
+
 async def process_natural_message(update, context=None) -> None:
     """Process natural language messages with AI intent classification."""
     
@@ -185,20 +196,20 @@ async def handle_note_intent(update, context, message: str, classification: Dict
     confidence = classification['confidence']
     user_id = str(update.effective_user.id)
     
-    # Try to save to Notion
-    from handlers.notion_client import notion_client
-    result = await notion_client.save_note(user_id, message, classification)
+    # Save to Supabase database
+    from handlers.supabase_content import content_handler
+    result = await content_handler.save_note(user_id, message, classification)
     
     if result["success"]:
         response = f"📝 **Note Saved Successfully!** (confidence: {confidence:.0%})\n\n"
-        response += f"💾 **Saved to Notion**: *{message}*\n\n"
-        response += f"🔗 **Page URL**: {result['url']}\n\n"
-        response += "✨ Your note is now part of your Second Brain and will be available for future search and resurfacing!"
+        response += f"💾 **Saved to Database**: *{result['title']}*\n\n"
+        response += f"🔗 **ID**: {result['id']}\n\n"
+        response += "✨ Your note is now part of your Second Brain and will be available for search and retrieval!"
     else:
         response = f"📝 **Note Detected** (confidence: {confidence:.0%})\n\n"
         response += f"I want to save: *{message}*\n\n"
         response += f"❌ **Save failed**: {result.get('error', 'Unknown error')}\n\n"
-        response += "💡 Make sure you're registered with `/register` and your Notion workspace is set up correctly."
+        response += "💡 Make sure you're registered with `/register` and the database is configured correctly."
     
     await update.message.reply_text(response, parse_mode='Markdown')
 
@@ -208,20 +219,24 @@ async def handle_task_intent(update, context, message: str, classification: Dict
     confidence = classification['confidence']
     user_id = str(update.effective_user.id)
     
-    # Try to save to Notion
-    from handlers.notion_client import notion_client
-    result = await notion_client.save_task(user_id, message, classification)
+    # Save to Supabase database
+    from handlers.supabase_content import content_handler
+    result = await content_handler.save_task(user_id, message, classification)
     
     if result["success"]:
         response = f"📋 **Task Saved Successfully!** (confidence: {confidence:.0%})\n\n"
-        response += f"✅ **Added to your task list**: *{message}*\n\n"
-        response += f"🔗 **Page URL**: {result['url']}\n\n"
-        response += "🎯 Your task is now tracked in your Notion workspace!"
+        response += f"✅ **Added to your task list**: *{result['title']}*\n\n"
+        response += f"🔗 **ID**: {result['id']}\n\n"
+        if result.get('due_date'):
+            response += f"📅 **Due Date**: {result['due_date']}\n\n"
+        if result.get('priority'):
+            response += f"🎯 **Priority**: {result['priority']}\n\n"
+        response += "🎯 Your task is now tracked in your database!"
     else:
         response = f"📋 **Task Detected** (confidence: {confidence:.0%})\n\n"
         response += f"I understand you need to: *{message}*\n\n"
         response += f"❌ **Save failed**: {result.get('error', 'Unknown error')}\n\n"
-        response += "💡 Make sure you're registered with `/register` and your Notion workspace is set up correctly."
+        response += "💡 Make sure you're registered with `/register` and the database is configured correctly."
     
     await update.message.reply_text(response, parse_mode='Markdown')
 
@@ -231,22 +246,22 @@ async def handle_reminder_intent(update, context, message: str, classification: 
     confidence = classification['confidence']
     user_id = str(update.effective_user.id)
     
-    # Try to save to Notion
-    from handlers.notion_client import notion_client
-    result = await notion_client.save_reminder(user_id, message, classification)
+    # Save to Supabase database
+    from handlers.supabase_content import content_handler
+    result = await content_handler.save_reminder(user_id, message, classification)
     
     if result["success"]:
         response = f"⏰ **Reminder Saved Successfully!** (confidence: {confidence:.0%})\n\n"
-        response += f"🔔 **Reminder set**: *{message}*\n\n"
-        response += f"🔗 **Page URL**: {result['url']}\n\n"
+        response += f"🔔 **Reminder set**: *{result['title']}*\n\n"
+        response += f"🔗 **ID**: {result['id']}\n\n"
         if result.get('due_date'):
             response += f"📅 **Due Date**: {result['due_date']}\n\n"
-        response += "⏱️ Your reminder is now stored in your Notion workspace!"
+        response += "⏱️ Your reminder is now stored in your database!"
     else:
         response = f"⏰ **Reminder Detected** (confidence: {confidence:.0%})\n\n"
         response += f"I want to remind you: *{message}*\n\n"
         response += f"❌ **Save failed**: {result.get('error', 'Unknown error')}\n\n"
-        response += "💡 Make sure you're registered with `/register` and your Notion workspace is set up correctly."
+        response += "💡 Make sure you're registered with `/register` and the database is configured correctly."
     
     await update.message.reply_text(response, parse_mode='Markdown')
 
@@ -313,24 +328,23 @@ async def handle_link_intent(update, context, message: str, classification: Dict
         url = urls[0]
         context_text = message.replace(url, "").strip()
         
-        # Try to save to Notion
-        from handlers.notion_client import notion_client
-        result = await notion_client.save_link(user_id, url, context_text, classification)
+        # Save to Supabase database
+        from handlers.supabase_content import content_handler
+        result = await content_handler.save_link(user_id, url, context_text, classification)
         
         if result["success"]:
             response = f"🔗 **Link Saved Successfully!** (confidence: {confidence:.0%})\n\n"
             response += f"💾 **URL**: {url}\n"
-            if result.get('title'):
-                response += f"📄 **Title**: {result['title']}\n"
+            response += f"📄 **Title**: {result['title']}\n"
             if context_text:
                 response += f"📝 **Context**: {context_text}\n"
-            response += f"\n🔗 **Notion Page**: {result['url']}\n\n"
+            response += f"🔗 **ID**: {result['id']}\n\n"
             response += "🌟 Your link is now saved in your read-later collection!"
         else:
             response = f"🔗 **Link Detected** (confidence: {confidence:.0%})\n\n"
             response += f"URL: {url}\n\n"
             response += f"❌ **Save failed**: {result.get('error', 'Unknown error')}\n\n"
-            response += "💡 Make sure you're registered with `/register` and your Notion workspace is set up correctly."
+            response += "💡 Make sure you're registered with `/register` and the database is configured correctly."
     else:
         response = f"🔗 **Link Intent Detected** (confidence: {confidence:.0%})\n\n"
         response += f"Message: *{message}*\n\n"
