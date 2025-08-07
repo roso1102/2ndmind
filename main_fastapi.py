@@ -110,6 +110,7 @@ async def telegram_webhook(request: Request):
             # Handle commands
             if text.startswith("/"):
                 cmd = text.split()[0].lower()
+                log(f"🔧 Detected command: '{cmd}' from full text: '{text}'")
                 
                 if cmd == "/start":
                     await send_message(chat_id, 
@@ -189,9 +190,15 @@ Try saying things like:
                 elif cmd == "/health":
                     await send_message(chat_id, "🟢 Bot is healthy and running!")
                     return {"ok": True}
+                
+                else:
+                    # Unknown command
+                    await send_message(chat_id, f"❓ Unknown command: {cmd}\n\nUse /help to see available commands.")
+                    return {"ok": True}
             
             # Process non-command messages with AI
-            try:
+            else:
+                try:
                 # Create a mock update object for the handler
                 class MockUpdate:
                     def __init__(self, text, chat_id, user_id, username):
