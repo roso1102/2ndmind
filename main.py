@@ -261,9 +261,9 @@ Try saying things like:
                     log(f"🎯 Processing /register for user {user_id}")
                     # Create mock update object for registration handler
                     class MockUpdate:
-                        def __init__(self, text, chat_id, user_id, username):
+                        def __init__(self, text, chat_id, user_id, username, first_name=None, last_name=None):
                             self.message = MockMessage(text, chat_id)
-                            self.effective_user = MockUser(user_id, username)
+                            self.effective_user = MockUser(user_id, username, first_name, last_name)
                     
                     class MockMessage:
                         def __init__(self, text, chat_id):
@@ -274,12 +274,22 @@ Try saying things like:
                             await send_message(self.chat_id, response)
                     
                     class MockUser:
-                        def __init__(self, user_id, username):
+                        def __init__(self, user_id, username, first_name=None, last_name=None):
                             self.id = int(user_id)
                             self.username = username
+                            self.first_name = first_name
+                            self.last_name = last_name
                     
                     try:
-                        mock_update = MockUpdate(text, chat_id, user_id, message.get("from", {}).get("username"))
+                        user_data = message.get("from", {})
+                        mock_update = MockUpdate(
+                            text, 
+                            chat_id, 
+                            user_id, 
+                            user_data.get("username"),
+                            user_data.get("first_name"),
+                            user_data.get("last_name")
+                        )
                         await register_handler(mock_update, None)
                         log(f"✅ /register completed for user {user_id}")
                     except Exception as e:
@@ -309,9 +319,9 @@ Try saying things like:
                 try:
                     # Create a mock update object for the handler
                     class MockUpdate:
-                        def __init__(self, text, chat_id, user_id, username):
+                        def __init__(self, text, chat_id, user_id, username, first_name=None, last_name=None):
                             self.message = MockMessage(text, chat_id, user_id)
-                            self.effective_user = MockEffectiveUser(user_id, username)
+                            self.effective_user = MockEffectiveUser(user_id, username, first_name, last_name)
                     
                     class MockMessage:
                         def __init__(self, text, chat_id, user_id):
@@ -327,12 +337,22 @@ Try saying things like:
                             self.id = user_id
 
                     class MockEffectiveUser:
-                        def __init__(self, user_id, username):
+                        def __init__(self, user_id, username, first_name=None, last_name=None):
                             self.id = int(user_id)
                             self.username = username
+                            self.first_name = first_name
+                            self.last_name = last_name
                     
                     # Check if user is registered before processing natural language
-                    mock_update = MockUpdate(text, chat_id, user_id, message.get("from", {}).get("username"))
+                    user_data = message.get("from", {})
+                    mock_update = MockUpdate(
+                        text, 
+                        chat_id, 
+                        user_id, 
+                        user_data.get("username"),
+                        user_data.get("first_name"),
+                        user_data.get("last_name")
+                    )
                     
                     # For natural language processing, check registration first
                     if not await check_user_registration(mock_update, chat_id):
