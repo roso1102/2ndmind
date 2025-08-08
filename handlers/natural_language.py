@@ -376,7 +376,7 @@ async def handle_question_intent(update, context, message: str, classification: 
                     response = f"🔍 Found {len(results)} result(s) for '{search_term}':\n\n"
                     
                     for item in results:
-                        content_type = item.get('type', 'unknown')
+                        content_type = item.get('content_type', 'unknown')
                         title = item.get('title', 'Untitled')
                         snippet = item.get('snippet', item.get('content', ''))
                         created_at = item.get('created_at', '')
@@ -389,8 +389,8 @@ async def handle_question_intent(update, context, message: str, classification: 
                             response += f"🔗 Link: {title}\n"
                             response += f"   {item.get('url', '')}\n"
                         elif content_type == 'task':
-                            status = item.get('status', 'pending')
-                            status_emoji = '✅' if status == 'completed' else '📋'
+                            completed = item.get('completed', False)
+                            status_emoji = '✅' if completed else '📋'
                             response += f"{status_emoji} Task: {title}\n"
                             response += f"   {snippet[:100]}{'...' if len(snippet) > 100 else ''}\n"
                         elif content_type == 'reminder':
