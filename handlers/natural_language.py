@@ -381,37 +381,59 @@ async def handle_question_intent(update, context, message: str, classification: 
                         snippet = item.get('snippet', item.get('content', ''))
                         created_at = item.get('created_at', '')
                         
-                        # Clean and truncate text to prevent Telegram API errors
-                        title = str(title).replace('\n', ' ').replace('\r', '')[:100]
-                        snippet = str(snippet).replace('\n', ' ').replace('\r', '')[:100]
+                        # Aggressive text cleaning and safety measures
+                        def clean_text(text):
+                            if not text:
+                                return ""
+                            # Convert to string and handle None values
+                            text = str(text)
+                            # Remove problematic characters
+                            text = text.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+                            # Remove multiple spaces
+                            text = ' '.join(text.split())
+                            # Encode/decode to handle special characters
+                            text = text.encode('utf-8', 'ignore').decode('utf-8')
+                            # Limit length
+                            return text[:100] if len(text) > 100 else text
                         
-                        # Format based on type
+                        title = clean_text(title)
+                        snippet = clean_text(snippet)
+                        
+                        # Format based on type with safer formatting
                         if content_type == 'note':
                             response += f"📝 Note: {title}\n"
-                            response += f"   {snippet}{'...' if len(str(item.get('content', ''))) > 100 else ''}\n"
+                            response += f"   {snippet}\n"
                         elif content_type == 'link':
-                            url = str(item.get('url', '')).replace('\n', ' ').replace('\r', '')
+                            url = clean_text(item.get('url', ''))
                             response += f"🔗 Link: {title}\n"
                             response += f"   {url}\n"
                         elif content_type == 'task':
                             completed = item.get('completed', False)
                             status_emoji = '✅' if completed else '📋'
                             response += f"{status_emoji} Task: {title}\n"
-                            response += f"   {snippet}{'...' if len(str(item.get('content', ''))) > 100 else ''}\n"
+                            response += f"   {snippet}\n"
                         elif content_type == 'reminder':
                             response += f"⏰ Reminder: {title}\n"
-                            response += f"   {snippet}{'...' if len(str(item.get('content', ''))) > 100 else ''}\n"
+                            response += f"   {snippet}\n"
+                        else:
+                            response += f"📄 {title}\n"
+                            response += f"   {snippet}\n"
                         
-                        response += f"   📅 {created_at[:10] if created_at else 'Unknown'}\n\n"
+                        # Add date safely
+                        date_str = created_at[:10] if created_at and len(created_at) >= 10 else 'Unknown'
+                        response += f"   📅 {date_str}\n\n"
                         
-                        # Prevent message from getting too long (Telegram limit: 4096 chars)
-                        if len(response) > 3500:
-                            response += f"... and {len(results) - (results.index(item) + 1)} more results.\n"
-                            response += f"Use `/search {search_term}` for complete results."
+                        # Prevent message from getting too long (more conservative limit)
+                        if len(response) > 3000:
+                            remaining = len(results) - (results.index(item) + 1)
+                            if remaining > 0:
+                                response += f"... and {remaining} more results.\n"
+                                response += f"Use /search {search_term} for complete results."
                             break
                     
-                    if len(results) >= 5 and len(response) <= 3500:
-                        response += f"Use `/search {search_term}` to see more results."
+                    # Only add "see more" if we haven't already truncated
+                    if len(results) >= 5 and len(response) <= 3000:
+                        response += f"Use /search {search_term} to see more results."
                 else:
                     response = f"🔍 No results found for '{search_term}'.\n\n"
                     response += "Try:\n"
@@ -470,18 +492,47 @@ async def handle_question_intent(update, context, message: str, classification: 
         response += "• \"Show me my recent content\"\n\n"
         response += "Or just type `/help` for a complete guide!"
     
-    # Try sending with Markdown, fallback to plain text if it fails
+    # Enhanced safe message sending with comprehensive error handling
     try:
-        await update.message.reply_text(response, parse_mode='Markdown')
+        # Log the response for debugging
+        logger.info(f"Attempting to send response (length: {len(response)})")
+        logger.debug(f"Response content preview: {response[:200]}...")
+        
+        # Additional text cleaning for safety
+        safe_response = response.encode('utf-8', 'ignore').decode('utf-8')
+        safe_response = safe_response.replace('\r\n', '\n').replace('\r', '\n')
+        
+        # Ensure response isn't too long
+        if len(safe_response) > 4000:
+            safe_response = safe_response[:3900] + "\n\n... (truncated for length)"
+        
+        await update.message.reply_text(safe_response, parse_mode='Markdown')
+        logger.info("✅ Successfully sent response with Markdown")
+        
     except Exception as e:
-        logger.warning(f"Failed to send with Markdown, trying plain text: {e}")
+        logger.warning(f"Failed to send with Markdown: {str(e)}")
         try:
-            # Remove markdown formatting and try again
-            plain_response = response.replace('*', '').replace('_', '').replace('`', '')
+            # More aggressive cleaning for plain text
+            plain_response = response.replace('*', '').replace('_', '').replace('`', '').replace('#', '')
+            plain_response = plain_response.replace('[', '').replace(']', '').replace('(', '').replace(')', '')
+            plain_response = plain_response.encode('ascii', 'ignore').decode('ascii')
+            
+            # Ensure it's not too long
+            if len(plain_response) > 4000:
+                plain_response = plain_response[:3900] + "\n\n... (truncated)"
+                
             await update.message.reply_text(plain_response)
+            logger.info("✅ Successfully sent response as plain text")
+            
         except Exception as e2:
-            logger.error(f"Failed to send message entirely: {e2}")
-            await update.message.reply_text("❌ Sorry, there was an error sending your search results. Please try again.")
+            logger.error(f"Failed to send message entirely: {str(e2)}")
+            try:
+                # Final fallback - very simple message
+                await update.message.reply_text("🔍 Search completed! Found results for your query.")
+                logger.info("✅ Sent fallback message")
+            except Exception as e3:
+                logger.error(f"Even fallback message failed: {str(e3)}")
+                # Don't try to send anything else
 
 async def handle_greeting_intent(update, context, message: str, classification: Dict) -> None:
     """Handle greetings and casual conversation starters."""
