@@ -381,13 +381,13 @@ async def handle_greeting_intent(update, context, message: str, classification: 
     
     response = f"{greeting}\n\n"
     response += "Here are some things you can try:\n\n"
-    response += "💬 **Just chat naturally with me!**\n"
-    response += "📋 *\"I need to finish my report by Friday\"*\n"
-    response += "📝 *\"Remember my doctor's appointment is at 3pm\"*\n"
-    response += "⏰ *\"Remind me to call mom tomorrow\"*\n"
-    response += "🔗 *\"Read later: https://example.com\"*\n"
-    response += "❓ *\"What did I save about productivity?\"*\n\n"
-    response += "Or use commands like `/help` to see all options!"
+    response += "💬 Just chat naturally with me!\n"
+    response += "📋 \"I need to finish my report by Friday\"\n"
+    response += "📝 \"Remember my doctor's appointment is at 3pm\"\n"
+    response += "⏰ \"Remind me to call mom tomorrow\"\n"
+    response += "🔗 \"Read later: https://example.com\"\n"
+    response += "❓ \"What did I save about productivity?\"\n\n"
+    response += "Or use commands like /help to see all options!"
     
     await update.message.reply_text(response)
 
@@ -411,42 +411,42 @@ async def handle_link_intent(update, context, message: str, classification: Dict
         result = await content_handler.save_link(user_id, url, context_text, classification)
         
         if result["success"]:
-            response = f"🔗 **Link Saved Successfully!** (confidence: {confidence:.0%})\n\n"
-            response += f"💾 **URL**: {url}\n"
-            response += f"📄 **Title**: {result['title']}\n"
+            response = f"🔗 Link Saved Successfully! (confidence: {confidence:.0%})\n\n"
+            response += f"💾 URL: {url}\n"
+            response += f"📄 Title: {result['title'] or 'No title'}\n"
             if context_text:
-                response += f"📝 **Context**: {context_text}\n"
-            response += f"🔗 **ID**: {result['id']}\n\n"
+                response += f"📝 Context: {context_text}\n"
+            response += f"🔗 ID: {result['id']}\n\n"
             response += "🌟 Your link is now saved in your read-later collection!"
         else:
-            response = f"🔗 **Link Detected** (confidence: {confidence:.0%})\n\n"
+            response = f"🔗 Link Detected (confidence: {confidence:.0%})\n\n"
             response += f"URL: {url}\n\n"
-            response += f"❌ **Save failed**: {result.get('error', 'Unknown error')}\n\n"
-            response += "💡 Make sure you're registered with `/register` and the database is configured correctly."
+            response += f"❌ Save failed: {result.get('error', 'Unknown error')}\n\n"
+            response += "💡 Make sure you're registered with /register and the database is configured correctly."
     else:
-        response = f"🔗 **Link Intent Detected** (confidence: {confidence:.0%})\n\n"
-        response += f"Message: *{message}*\n\n"
-        response += "❌ **No URL found** in your message.\n\n"
-        response += "💡 Include a URL like: `https://example.com` or `Read later: https://article.com`"
+        response = f"🔗 Link Intent Detected (confidence: {confidence:.0%})\n\n"
+        response += f"Message: {message}\n\n"
+        response += "❌ No URL found in your message.\n\n"
+        response += "💡 Include a URL like: https://example.com or Read later: https://article.com"
     
-    await update.message.reply_text(response, parse_mode='Markdown')
+    await update.message.reply_text(response)
 
 async def handle_file_intent(update, context, message: str, classification: Dict) -> None:
     """Handle file upload and processing requests."""
     
     confidence = classification['confidence']
     
-    response = f"📄 **File Intent Detected** (confidence: {confidence:.0%})\n\n"
-    response += f"Message: *{message}*\n\n"
+    response = f"📄 File Intent Detected (confidence: {confidence:.0%})\n\n"
+    response += f"Message: {message}\n\n"
     response += "🚧 Advanced file processing is coming soon!\n\n"
-    response += "**Planned Features:**\n"
-    response += "• 📄 **PDF Processing**: Auto-compress and extract text\n"
-    response += "• 🖼️ **Image OCR**: Extract text from screenshots\n"
-    response += "• 📁 **Smart Organization**: Auto-categorize and tag files\n"
-    response += "• 🔍 **Content Search**: Find text within uploaded documents\n\n"
+    response += "Planned Features:\n"
+    response += "• 📄 PDF Processing: Auto-compress and extract text\n"
+    response += "• 🖼️ Image OCR: Extract text from screenshots\n"
+    response += "• 📁 Smart Organization: Auto-categorize and tag files\n"
+    response += "• 🔍 Content Search: Find text within uploaded documents\n\n"
     response += "For now, you can upload files directly and I'll acknowledge them!"
     
-    await update.message.reply_text(response, parse_mode='Markdown')
+    await update.message.reply_text(response)
 
 async def handle_other_intent(update, context, message: str, classification: Dict) -> None:
     """Handle other/unclassified messages with smart detection."""
