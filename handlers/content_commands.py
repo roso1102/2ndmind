@@ -19,7 +19,7 @@ async def view_notes_command(update, context) -> None:
         result = await content_handler.get_user_content(user_id, content_type='note', limit=10)
         
         if result["success"] and result["count"] > 0:
-            response = f"📝 **Your Recent Notes** ({result['count']} shown)\n\n"
+            response = f"📝 Your Recent Notes ({result['count']} shown)\n\n"
             
             for i, note in enumerate(result["content"], 1):
                 title = note.get('title', 'Untitled')
@@ -29,19 +29,19 @@ async def view_notes_command(update, context) -> None:
                 # Truncate content for preview
                 content_preview = content[:100] + "..." if len(content) > 100 else content
                 
-                response += f"**{i}. {title}**\n"
+                response += f"{i}. {title}\n"
                 response += f"📄 {content_preview}\n"
                 response += f"📅 {created_at[:10] if created_at else 'Unknown'}\n\n"
             
             response += "💡 Use `/search <term>` to find specific notes!"
         else:
-            response = "📝 **No Notes Found**\n\n"
+            response = "📝 No Notes Found\n\n"
             response += "You haven't saved any notes yet! Try saying:\n"
             response += "• \"I learned that Python is great for automation\"\n"
             response += "• \"Remember: Meeting notes from today's standup\"\n"
             response += "• \"Idea: Build a personal knowledge bot\""
         
-        await update.message.reply_text(response, parse_mode='Markdown')
+        await update.message.reply_text(response, )
         
     except Exception as e:
         logger.error(f"Error viewing notes: {e}")
@@ -58,7 +58,7 @@ async def view_tasks_command(update, context) -> None:
         result = await content_handler.get_user_content(user_id, content_type='task', limit=10)
         
         if result["success"] and result["count"] > 0:
-            response = f"📋 **Your Recent Tasks** ({result['count']} shown)\n\n"
+            response = f"📋 Your Recent Tasks ({result['count']} shown)\n\n"
             
             for i, task in enumerate(result["content"], 1):
                 title = task.get('title', 'Untitled')
@@ -70,7 +70,7 @@ async def view_tasks_command(update, context) -> None:
                 status_icon = "✅" if completed else "⏳"
                 priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(priority, "🟡")
                 
-                response += f"**{i}. {status_icon} {title}** {priority_icon}\n"
+                response += f"{i}. {status_icon} {title} {priority_icon}\n"
                 response += f"📄 {content[:80]}{'...' if len(content) > 80 else ''}\n"
                 
                 if due_date:
@@ -80,13 +80,13 @@ async def view_tasks_command(update, context) -> None:
             
             response += "💡 Use `/search tasks` to find specific tasks!"
         else:
-            response = "📋 **No Tasks Found**\n\n"
+            response = "📋 No Tasks Found\n\n"
             response += "You haven't saved any tasks yet! Try saying:\n"
             response += "• \"I need to finish the project report by Friday\"\n"
             response += "• \"Task: Review team performance metrics\"\n"
             response += "• \"Must complete code review before noon\""
         
-        await update.message.reply_text(response, parse_mode='Markdown')
+        await update.message.reply_text(response, )
         
     except Exception as e:
         logger.error(f"Error viewing tasks: {e}")
@@ -103,7 +103,7 @@ async def view_links_command(update, context) -> None:
         result = await content_handler.get_user_content(user_id, content_type='link', limit=10)
         
         if result["success"] and result["count"] > 0:
-            response = f"🔗 **Your Recent Links** ({result['count']} shown)\n\n"
+            response = f"🔗 Your Recent Links ({result['count']} shown)\n\n"
             
             for i, link in enumerate(result["content"], 1):
                 title = link.get('title', 'Untitled')
@@ -111,7 +111,7 @@ async def view_links_command(update, context) -> None:
                 content = link.get('content', '')
                 created_at = link.get('created_at', '')
                 
-                response += f"**{i}. {title}**\n"
+                response += f"{i}. {title}\n"
                 response += f"🔗 {url}\n"
                 
                 # Extract context if available
@@ -121,15 +121,15 @@ async def view_links_command(update, context) -> None:
                 
                 response += f"📅 {created_at[:10] if created_at else 'Unknown'}\n\n"
             
-            response += "💡 Use `/search links` to find specific links!"
+            response += "💡 Use /search links to find specific links!"
         else:
-            response = "🔗 **No Links Found**\n\n"
+            response = "🔗 No Links Found\n\n"
             response += "You haven't saved any links yet! Try saying:\n"
             response += "• \"Read later: https://interesting-article.com\"\n"
             response += "• \"Bookmark: https://useful-tool.com for productivity\"\n"
             response += "• \"Save this: https://tutorial.com about Python\""
         
-        await update.message.reply_text(response, parse_mode='Markdown')
+        await update.message.reply_text(response)
         
     except Exception as e:
         logger.error(f"Error viewing links: {e}")
@@ -146,7 +146,7 @@ async def view_reminders_command(update, context) -> None:
         result = await content_handler.get_user_content(user_id, content_type='reminder', limit=10)
         
         if result["success"] and result["count"] > 0:
-            response = f"⏰ **Your Recent Reminders** ({result['count']} shown)\n\n"
+            response = f"⏰ Your Recent Reminders ({result['count']} shown)\n\n"
             
             for i, reminder in enumerate(result["content"], 1):
                 title = reminder.get('title', 'Untitled')
@@ -154,7 +154,7 @@ async def view_reminders_command(update, context) -> None:
                 due_date = reminder.get('due_date')
                 created_at = reminder.get('created_at', '')
                 
-                response += f"**{i}. ⏰ {title}**\n"
+                response += f"{i}. ⏰ {title}\n"
                 response += f"📄 {content[:80]}{'...' if len(content) > 80 else ''}\n"
                 
                 if due_date:
@@ -166,13 +166,13 @@ async def view_reminders_command(update, context) -> None:
             
             response += "💡 Use `/search reminders` to find specific reminders!"
         else:
-            response = "⏰ **No Reminders Found**\n\n"
+            response = "⏰ No Reminders Found\n\n"
             response += "You haven't set any reminders yet! Try saying:\n"
             response += "• \"Remind me to call mom tomorrow at 6pm\"\n"
             response += "• \"Alert me about the meeting at 2pm\"\n"
             response += "• \"Don't forget to submit report by Friday\""
         
-        await update.message.reply_text(response, parse_mode='Markdown')
+        await update.message.reply_text(response, )
         
     except Exception as e:
         logger.error(f"Error viewing reminders: {e}")
@@ -185,19 +185,19 @@ async def search_command(update, context) -> None:
     user_id = str(update.effective_user.id)
     
     if not context.args:
-        response = "🔍 **Search Your Content**\n\n"
-        response += "**Usage:**\n"
+        response = "🔍 Search Your Content\n\n"
+        response += "Usage:\n"
         response += "`/search <query>` - Search all content\n"
         response += "`/search notes <query>` - Search only notes\n"
         response += "`/search tasks <query>` - Search only tasks\n"
         response += "`/search links <query>` - Search only links\n"
         response += "`/search reminders <query>` - Search only reminders\n\n"
-        response += "**Examples:**\n"
+        response += "Examples:\n"
         response += "• `/search python` - Find all Python-related content\n"
         response += "• `/search tasks urgent` - Find urgent tasks\n"
         response += "• `/search notes productivity` - Find productivity notes"
         
-        await update.message.reply_text(response, parse_mode='Markdown')
+        await update.message.reply_text(response, )
         return
     
     query_parts = context.args
@@ -244,10 +244,10 @@ async def search_command(update, context) -> None:
         
         if search_result["success"] and search_result.get("count", 0) > 0:
             results = search_result["results"]
-            response = f"🔍 **Search Results for \"{search_query}\"**\n"
+            response = f"🔍 Search Results for \"{search_query}\"\n"
             if content_type:
-                response += f"**Searching in:** {content_type}s\n"
-            response += f"**Found:** {len(results)} items\n\n"
+                response += f"Searching in: {content_type}s\n"
+            response += f"Found: {len(results)} items\n\n"
             
             for i, item in enumerate(results[:10], 1):  # Limit to 10 results
                 title = item.get('title', 'Untitled')
@@ -263,7 +263,7 @@ async def search_command(update, context) -> None:
                 }
                 icon = type_icons.get(item_type, '📄')
                 
-                response += f"**{i}. {icon} {title}**\n"
+                response += f"{i}. {icon} {title}\n"
                 response += f"📄 {content[:100]}{'...' if len(content) > 100 else ''}\n"
                 response += f"📅 {created_at[:10] if created_at else 'Unknown'}\n\n"
             
@@ -271,13 +271,13 @@ async def search_command(update, context) -> None:
                 response += f"... and {len(results) - 10} more results.\n"
                 response += "💡 Use more specific search terms to narrow results."
         else:
-            response = f"🔍 **No Results Found for \"{search_query}\"**\n\n"
+            response = f"🔍 No Results Found for \"{search_query}\"\n\n"
             response += "Try:\n"
             response += "• Using different keywords\n"
             response += "• Searching in specific types: `/search notes productivity`\n"
             response += "• Checking your saved content with `/notes`, `/tasks`, `/links`"
         
-        await update.message.reply_text(response, parse_mode='Markdown')
+        await update.message.reply_text(response, )
         
     except Exception as e:
         logger.error(f"Error searching content: {e}")
@@ -303,8 +303,8 @@ async def content_stats_command(update, context) -> None:
             stats[content_type] = count
             total_items += count
         
-        response = f"📊 **Your Content Statistics**\n\n"
-        response += f"**Total Items:** {total_items}\n\n"
+        response = f"📊 Your Content Statistics\n\n"
+        response += f"Total Items: {total_items}\n\n"
         
         type_icons = {
             'note': '📝 Notes',
@@ -316,16 +316,16 @@ async def content_stats_command(update, context) -> None:
         for content_type in content_types:
             count = stats[content_type]
             icon_label = type_icons[content_type]
-            response += f"**{icon_label}:** {count}\n"
+            response += f"{icon_label}: {count}\n"
         
         if total_items > 0:
-            response += f"\n🎯 **Your Second Brain is growing!**\n"
+            response += f"\n🎯 Your Second Brain is growing!\n"
             response += f"💡 Use `/search` to find your saved knowledge"
         else:
-            response += f"\n🌱 **Start building your Second Brain!**\n"
+            response += f"\n🌱 Start building your Second Brain!\n"
             response += f"Try saving some notes, tasks, or links to get started."
         
-        await update.message.reply_text(response, parse_mode='Markdown')
+        await update.message.reply_text(response, )
         
     except Exception as e:
         logger.error(f"Error getting content stats: {e}")
