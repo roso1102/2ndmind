@@ -44,7 +44,7 @@ def log(message, level="INFO"):
     else:
         logger.info(message)
 
-async def check_user_registration(mock_update):
+async def check_user_registration(mock_update, chat_id):
     """Check if user is registered, send registration prompt if not."""
     user_id = str(mock_update.effective_user.id)
     
@@ -52,7 +52,7 @@ async def check_user_registration(mock_update):
         return True
     else:
         # Send registration prompt
-        await send_message(mock_update.effective_chat.id, 
+        await send_message(chat_id, 
             "🔑 **Welcome to MySecondMind!**\n\n"
             "Please register first by typing:\n"
             "`/register`\n\n"
@@ -335,7 +335,7 @@ Try saying things like:
                     mock_update = MockUpdate(text, chat_id, user_id, message.get("from", {}).get("username"))
                     
                     # For natural language processing, check registration first
-                    if not await check_user_registration(mock_update):
+                    if not await check_user_registration(mock_update, chat_id):
                         return {"ok": True}  # Registration prompt already sent
                     
                     # Process with natural language handler
