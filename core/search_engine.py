@@ -39,6 +39,13 @@ class SearchEngine:
             'productivity': ['efficiency', 'time management', 'organization', 'workflow'],
             'ocean': ['sea', 'marine', 'water', 'aquatic'],
             'solar': ['renewable energy', 'photovoltaic', 'green energy', 'sustainable'],
+            # URL domain mappings for link searches
+            'youtube': ['youtube.com', 'youtu.be', 'video', 'watch'],
+            'instagram': ['instagram.com', 'insta', 'ig', 'reel', 'post'],
+            'twitter': ['twitter.com', 'x.com', 'tweet'],
+            'github': ['github.com', 'git', 'repository', 'repo', 'code'],
+            'linkedin': ['linkedin.com', 'professional', 'career'],
+            'medium': ['medium.com', 'article', 'blog post'],
         }
         
         # Common abbreviations

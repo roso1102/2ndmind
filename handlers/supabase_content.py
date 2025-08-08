@@ -253,34 +253,94 @@ class SupabaseContentHandler:
         try:
             if not self.supabase:
                 return {"success": False, "error": "Supabase not initialized"}
+
+            # Try multiple search strategies:
+            # 1. Full-text search on search_vector
+            # 2. Domain-specific search for URLs (if query looks like a domain)
+            # 3. Fallback to ILIKE search
             
-            # Use PostgreSQL full-text search
+            # Strategy 1: Full-text search
             search_query = self.supabase.table('user_content').select('*').eq('user_id', user_id)
             search_query = search_query.text_search('search_vector', query)
             search_query = search_query.order('created_at', desc=True).limit(limit)
             
             result = search_query.execute()
             
-            if result.get('data') is not None:
+            # If we got results, return them
+            if result.get('data') and len(result['data']) > 0:
                 return {
                     "success": True,
                     "results": result.get('data'),
                     "count": len(result.get('data')),
                     "query": query
                 }
-            else:
-                return {"success": False, "error": "Search failed"}
+            
+            # Strategy 2: If query might be a domain search, try URL matching
+            if any(domain in query.lower() for domain in ['youtube', 'instagram', 'twitter', 'github', 'linkedin']):
+                url_search = await self._search_by_domain(user_id, query, limit)
+                if url_search.get('success') and url_search.get('results'):
+                    return url_search
+            
+            # Strategy 3: Fallback to ILIKE search
+            return await self._fallback_search(user_id, query, limit)
                 
         except Exception as e:
             logger.error(f"❌ Search failed: {e}")
             # Fallback to simple text search
             return await self._fallback_search(user_id, query, limit)
     
+    async def _search_by_domain(self, user_id: str, query: str, limit: int) -> Dict:
+        """Search specifically for URLs containing the domain."""
+        try:
+            # Map common terms to URL patterns
+            domain_patterns = {
+                'youtube': ['youtube.com', 'youtu.be'],
+                'instagram': ['instagram.com'],
+                'twitter': ['twitter.com', 'x.com'],
+                'github': ['github.com'],
+                'linkedin': ['linkedin.com'],
+                'medium': ['medium.com']
+            }
+            
+            # Build URL search conditions
+            url_conditions = []
+            query_lower = query.lower()
+            
+            for domain, patterns in domain_patterns.items():
+                if domain in query_lower:
+                    for pattern in patterns:
+                        url_conditions.append(f"url.ilike.%{pattern}%")
+            
+            if url_conditions:
+                search_query = self.supabase.table('user_content').select('*').eq('user_id', user_id)
+                search_query = search_query.or_(','.join(url_conditions))
+                search_query = search_query.order('created_at', desc=True).limit(limit)
+                
+                result = search_query.execute()
+                
+                return {
+                    "success": True,
+                    "results": result.get('data', []),
+                    "count": len(result.get('data', [])),
+                    "query": query,
+                    "search_type": "domain"
+                }
+            
+            return {"success": False, "results": []}
+                
+        except Exception as e:
+            logger.error(f"❌ Domain search failed: {e}")
+            return {"success": False, "error": str(e)}
+    
     async def _fallback_search(self, user_id: str, query: str, limit: int) -> Dict:
         """Fallback search using ILIKE."""
         try:
             search_query = self.supabase.table('user_content').select('*').eq('user_id', user_id)
-            search_query = search_query.or_(f"title.ilike.%{query}%,content.ilike.%{query}%")
+            
+            # Enhanced search that includes URL field for link content
+            # Search in title, content, and URL (for links)
+            search_conditions = f"title.ilike.%{query}%,content.ilike.%{query}%,url.ilike.%{query}%"
+            search_query = search_query.or_(search_conditions)
             search_query = search_query.order('created_at', desc=True).limit(limit)
             
             result = search_query.execute()
