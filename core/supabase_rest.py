@@ -96,6 +96,16 @@ class SupabaseQuery:
         self.limit_count = count
         return self
     
+    def text_search(self, column: str, query: str) -> 'SupabaseQuery':
+        """Add text search filter (PostgreSQL full-text search)."""
+        self.filters.append(f"{column}=fts.{query}")
+        return self
+    
+    def or_(self, filter_string: str) -> 'SupabaseQuery':
+        """Add OR filter."""
+        self.filters.append(f"or=({filter_string})")
+        return self
+    
     def execute(self) -> Dict:
         """Execute the query."""
         if not self.table.client.ready:

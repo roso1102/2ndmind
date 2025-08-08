@@ -232,27 +232,49 @@ async def handle_telegram_webhook(request: Request):
                     
                 elif cmd == "/help":
                     help_text = """
-🤖 *MySecondMind Help*
+🤖 **MySecondMind Help**
 
-*Commands:*
-• /start - Welcome message
-• /register - Connect your Notion workspace
-• /help - Show this help
-• /status - Bot status
-• /health - Health check
+**📋 Commands:**
+• `/start` - Welcome message and introduction
+• `/register` - Set up your personal Second Brain
+• `/help` - Show this help menu
 
-*Natural Language:*
-Just chat with me naturally! I can understand and respond to:
-• Notes and ideas to save
-• Links to bookmark
-• Reminders to set
-• Questions about your saved content
+**👁️ View Your Content:**
+• `/notes` - Show your recent notes  
+• `/tasks` - Show your recent tasks
+• `/links` - Show your saved links
+• `/stats` - Show content statistics
 
-Try saying things like:
-• "I learned something interesting today..."
-• "Read later: https://example.com"
-• "Remind me to call mom tomorrow"
-• "What did I save about productivity?"
+**🔍 Search & Find:**
+• `/search <query>` - Search all your content
+• `/search notes <query>` - Search only notes
+• `/search tasks <query>` - Search only tasks
+• `/search links <query>` - Search only links
+
+**🗣️ Natural Language:**
+Just talk to me naturally! I understand:
+
+*💭 Notes & Ideas:*
+• "I learned that Supabase is awesome!"
+• "Remember: Python is great for automation"
+• "Note: Meeting insights from today"
+
+*📋 Tasks & TODOs:*
+• "I need to finish the project by Friday"
+• "Task: Review team performance metrics"
+• "Must complete code review before noon"
+
+*🔗 Links & Articles:*
+• "Read later: https://interesting-article.com"
+• "Bookmark: https://useful-tool.com for productivity"
+• "Save this: https://tutorial.com about Python"
+
+*⏰ Reminders:*
+• "Remind me to call mom tomorrow at 6pm"
+• "Alert me about the meeting at 2pm"
+• "Don't forget to submit report by Friday"
+
+**🧠 Your Second Brain is ready to help!**
 """
                     await send_message(chat_id, help_text)
                     return {"ok": True}
@@ -306,6 +328,224 @@ Try saying things like:
                     
                 elif cmd == "/health":
                     await send_message(chat_id, "🟢 Bot is healthy and running!")
+                    return {"ok": True}
+                
+                elif cmd == "/notes":
+                    log(f"🗒️ Processing /notes for user {user_id}")
+                    # Create mock update for content commands
+                    class MockUpdate:
+                        def __init__(self, text, chat_id, user_id, username, first_name=None, last_name=None):
+                            self.message = MockMessage(text, chat_id)
+                            self.effective_user = MockUser(user_id, username, first_name, last_name)
+                    
+                    class MockMessage:
+                        def __init__(self, text, chat_id):
+                            self.text = text
+                            self.chat_id = chat_id
+                            
+                        async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
+                            await send_message(self.chat_id, response)
+                    
+                    class MockUser:
+                        def __init__(self, user_id, username, first_name=None, last_name=None):
+                            self.id = int(user_id)
+                            self.username = username
+                            self.first_name = first_name
+                            self.last_name = last_name
+                    
+                    try:
+                        from handlers.content_commands import view_notes_command
+                        user_data = message.get("from", {})
+                        mock_update = MockUpdate(
+                            text, chat_id, user_id, user_data.get("username"),
+                            user_data.get("first_name"), user_data.get("last_name")
+                        )
+                        
+                        # Check registration first
+                        if not await check_user_registration(mock_update, chat_id):
+                            return {"ok": True}
+                            
+                        await view_notes_command(mock_update, None)
+                        log(f"✅ /notes completed for user {user_id}")
+                    except Exception as e:
+                        log(f"❌ Error in /notes: {e}", "ERROR")
+                        await send_message(chat_id, f"❌ Error retrieving notes: {str(e)}")
+                    return {"ok": True}
+                
+                elif cmd == "/tasks":
+                    log(f"📋 Processing /tasks for user {user_id}")
+                    try:
+                        from handlers.content_commands import view_tasks_command
+                        user_data = message.get("from", {})
+                        
+                        class MockUpdate:
+                            def __init__(self, text, chat_id, user_id, username, first_name=None, last_name=None):
+                                self.message = MockMessage(text, chat_id)
+                                self.effective_user = MockUser(user_id, username, first_name, last_name)
+                        
+                        class MockMessage:
+                            def __init__(self, text, chat_id):
+                                self.text = text
+                                self.chat_id = chat_id
+                                
+                            async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
+                                await send_message(self.chat_id, response)
+                        
+                        class MockUser:
+                            def __init__(self, user_id, username, first_name=None, last_name=None):
+                                self.id = int(user_id)
+                                self.username = username
+                                self.first_name = first_name
+                                self.last_name = last_name
+                        
+                        mock_update = MockUpdate(
+                            text, chat_id, user_id, user_data.get("username"),
+                            user_data.get("first_name"), user_data.get("last_name")
+                        )
+                        
+                        # Check registration first
+                        if not await check_user_registration(mock_update, chat_id):
+                            return {"ok": True}
+                            
+                        await view_tasks_command(mock_update, None)
+                        log(f"✅ /tasks completed for user {user_id}")
+                    except Exception as e:
+                        log(f"❌ Error in /tasks: {e}", "ERROR")
+                        await send_message(chat_id, f"❌ Error retrieving tasks: {str(e)}")
+                    return {"ok": True}
+                
+                elif cmd == "/links":
+                    log(f"🔗 Processing /links for user {user_id}")
+                    try:
+                        from handlers.content_commands import view_links_command
+                        user_data = message.get("from", {})
+                        
+                        class MockUpdate:
+                            def __init__(self, text, chat_id, user_id, username, first_name=None, last_name=None):
+                                self.message = MockMessage(text, chat_id)
+                                self.effective_user = MockUser(user_id, username, first_name, last_name)
+                        
+                        class MockMessage:
+                            def __init__(self, text, chat_id):
+                                self.text = text
+                                self.chat_id = chat_id
+                                
+                            async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
+                                await send_message(self.chat_id, response)
+                        
+                        class MockUser:
+                            def __init__(self, user_id, username, first_name=None, last_name=None):
+                                self.id = int(user_id)
+                                self.username = username
+                                self.first_name = first_name
+                                self.last_name = last_name
+                        
+                        mock_update = MockUpdate(
+                            text, chat_id, user_id, user_data.get("username"),
+                            user_data.get("first_name"), user_data.get("last_name")
+                        )
+                        
+                        # Check registration first
+                        if not await check_user_registration(mock_update, chat_id):
+                            return {"ok": True}
+                            
+                        await view_links_command(mock_update, None)
+                        log(f"✅ /links completed for user {user_id}")
+                    except Exception as e:
+                        log(f"❌ Error in /links: {e}", "ERROR")
+                        await send_message(chat_id, f"❌ Error retrieving links: {str(e)}")
+                    return {"ok": True}
+                
+                elif cmd.startswith("/search"):
+                    log(f"🔍 Processing /search for user {user_id}")
+                    try:
+                        from handlers.content_commands import search_command
+                        user_data = message.get("from", {})
+                        
+                        class MockUpdate:
+                            def __init__(self, text, chat_id, user_id, username, first_name=None, last_name=None):
+                                self.message = MockMessage(text, chat_id)
+                                self.effective_user = MockUser(user_id, username, first_name, last_name)
+                        
+                        class MockMessage:
+                            def __init__(self, text, chat_id):
+                                self.text = text
+                                self.chat_id = chat_id
+                                
+                            async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
+                                await send_message(self.chat_id, response)
+                        
+                        class MockUser:
+                            def __init__(self, user_id, username, first_name=None, last_name=None):
+                                self.id = int(user_id)
+                                self.username = username
+                                self.first_name = first_name
+                                self.last_name = last_name
+                        
+                        class MockContext:
+                            def __init__(self, args):
+                                self.args = args
+                        
+                        mock_update = MockUpdate(
+                            text, chat_id, user_id, user_data.get("username"),
+                            user_data.get("first_name"), user_data.get("last_name")
+                        )
+                        
+                        # Check registration first
+                        if not await check_user_registration(mock_update, chat_id):
+                            return {"ok": True}
+                        
+                        # Parse search arguments
+                        search_args = text.split()[1:] if len(text.split()) > 1 else []
+                        mock_context = MockContext(search_args)
+                            
+                        await search_command(mock_update, mock_context)
+                        log(f"✅ /search completed for user {user_id}")
+                    except Exception as e:
+                        log(f"❌ Error in /search: {e}", "ERROR")
+                        await send_message(chat_id, f"❌ Error searching content: {str(e)}")
+                    return {"ok": True}
+                
+                elif cmd == "/stats":
+                    log(f"📊 Processing /stats for user {user_id}")
+                    try:
+                        from handlers.content_commands import content_stats_command
+                        user_data = message.get("from", {})
+                        
+                        class MockUpdate:
+                            def __init__(self, text, chat_id, user_id, username, first_name=None, last_name=None):
+                                self.message = MockMessage(text, chat_id)
+                                self.effective_user = MockUser(user_id, username, first_name, last_name)
+                        
+                        class MockMessage:
+                            def __init__(self, text, chat_id):
+                                self.text = text
+                                self.chat_id = chat_id
+                                
+                            async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
+                                await send_message(self.chat_id, response)
+                        
+                        class MockUser:
+                            def __init__(self, user_id, username, first_name=None, last_name=None):
+                                self.id = int(user_id)
+                                self.username = username
+                                self.first_name = first_name
+                                self.last_name = last_name
+                        
+                        mock_update = MockUpdate(
+                            text, chat_id, user_id, user_data.get("username"),
+                            user_data.get("first_name"), user_data.get("last_name")
+                        )
+                        
+                        # Check registration first
+                        if not await check_user_registration(mock_update, chat_id):
+                            return {"ok": True}
+                            
+                        await content_stats_command(mock_update, None)
+                        log(f"✅ /stats completed for user {user_id}")
+                    except Exception as e:
+                        log(f"❌ Error in /stats: {e}", "ERROR")
+                        await send_message(chat_id, f"❌ Error retrieving stats: {str(e)}")
                     return {"ok": True}
                 
                 else:
