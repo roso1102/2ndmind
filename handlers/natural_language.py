@@ -71,10 +71,11 @@ IMPORTANT RULES:
 - "I learned about https://..." = LINK (not NOTE)
 - "Check out https://..." = LINK (not NOTE)
 - URLs with context should be LINK, the context will be saved with the URL
+- Questions about searching content should be QUESTION
 
 Message: "{message}"
 
-Respond ONLY with a JSON object like this:
+RESPOND WITH VALID JSON ONLY:
 {{"intent": "LINK", "confidence": 0.95, "reasoning": "Contains URL - should be saved as link with context"}}
 """
 
@@ -94,8 +95,27 @@ Respond ONLY with a JSON object like this:
             logger.info(f"🤖 AI classified '{message[:30]}...' as {result['intent']} (confidence: {result['confidence']})")
             return result
         except json.JSONDecodeError:
-            # Fallback if AI returns invalid JSON
-            return {"intent": "OTHER", "confidence": 0.5, "reasoning": "AI response parsing failed"}
+            # Log the actual AI response for debugging
+            logger.warning(f"❌ AI returned invalid JSON: {result_text}")
+            
+            # Try to extract intent from text response
+            result_lower = result_text.lower()
+            if "link" in result_lower:
+                return {"intent": "LINK", "confidence": 0.8, "reasoning": "AI mentioned link in response"}
+            elif "note" in result_lower:
+                return {"intent": "NOTE", "confidence": 0.8, "reasoning": "AI mentioned note in response"}
+            elif "task" in result_lower:
+                return {"intent": "TASK", "confidence": 0.8, "reasoning": "AI mentioned task in response"}
+            elif "question" in result_lower:
+                return {"intent": "QUESTION", "confidence": 0.8, "reasoning": "AI mentioned question in response"}
+            elif "reminder" in result_lower:
+                return {"intent": "REMINDER", "confidence": 0.8, "reasoning": "AI mentioned reminder in response"}
+            elif "greeting" in result_lower:
+                return {"intent": "GREETING", "confidence": 0.8, "reasoning": "AI mentioned greeting in response"}
+            
+            # Ultimate fallback to keyword classification
+            logger.info("🔄 Falling back to keyword classification")
+            return self._classify_with_keywords(message)
     
     def _classify_with_keywords(self, message: str) -> Dict[str, any]:
         """Fallback keyword-based classification."""
@@ -417,21 +437,62 @@ async def handle_file_intent(update, context, message: str, classification: Dict
     await update.message.reply_text(response, parse_mode='Markdown')
 
 async def handle_other_intent(update, context, message: str, classification: Dict) -> None:
-    """Handle other/unclassified messages."""
+    """Handle other/unclassified messages with smart detection."""
     
     confidence = classification['confidence']
     reasoning = classification.get('reasoning', 'Unknown')
+    message_lower = message.lower()
     
-    response = f"💭 **Processing Your Message** (confidence: {confidence:.0%})\n\n"
+    # Last-chance smart detection for common missed patterns
+    if any(word in message_lower for word in ['search', 'find', 'what did i save', 'show me', 'how do i']):
+        # This should have been a question - redirect to question handler
+        logger.info(f"� Redirecting missed question to question handler: {message}")
+        classification['intent'] = 'QUESTION'
+        classification['confidence'] = 0.8
+        await handle_question_intent(update, context, message, classification)
+        return
+    
+    elif any(word in message_lower for word in ['hello', 'hi', 'hey', 'good morning', 'good afternoon']):
+        # This should have been a greeting - redirect to greeting handler
+        logger.info(f"🔄 Redirecting missed greeting to greeting handler: {message}")
+        classification['intent'] = 'GREETING'
+        classification['confidence'] = 0.8
+        await handle_greeting_intent(update, context, message, classification)
+        return
+    
+    # For truly unclassified messages, be more helpful
+    response = f"🤔 **I'm not quite sure how to help with that** (confidence: {confidence:.0%})\n\n"
     response += f"You said: *{message}*\n\n"
-    response += "I'm still learning to understand all types of messages! Here's how you can help me:\n\n"
-    response += "**📝 For Notes/Ideas**: *\"I learned that quantum computers use qubits\"*\n"
-    response += "**📋 For Tasks**: *\"I need to finish my project by Friday\"*\n"
-    response += "**⏰ For Reminders**: *\"Remind me to call mom tomorrow at 6pm\"*\n"
-    response += "**🔗 For Links**: *\"Read later: https://interesting-article.com\"*\n"
-    response += "**❓ For Questions**: *\"What did I save about productivity?\"*\n"
-    response += "**👋 For Chat**: *\"Hello!\" or \"How are you?\"*\n\n"
-    response += f"🤖 *Why I'm unsure: {reasoning}*\n\n"
-    response += "💡 *The more specific you are, the better I can help organize your Second Brain!*"
+    
+    # Check if user has content to give better suggestions
+    user_id = str(update.effective_user.id)
+    try:
+        from handlers.supabase_content import content_handler
+        result = await content_handler.get_user_content(user_id, limit=1)
+        has_content = result.get("success") and result.get("count", 0) > 0
+    except:
+        has_content = False
+    
+    if has_content:
+        response += "**� Here's what I can definitely help with:**\n\n"
+        response += "• `/notes` - Show your saved notes\n"
+        response += "• `/tasks` - Show your tasks\n"
+        response += "• `/links` - Show your saved links\n"
+        response += "• `/search <query>` - Search your content\n"
+        response += "• `/help` - See all commands\n\n"
+        response += "**Or try saying:**\n"
+        response += "• \"Show me my recent notes\"\n"
+        response += "• \"What did I save today?\"\n"
+        response += "• \"I learned something new...\"\n"
+    else:
+        response += "**� Let's get you started! Try:**\n\n"
+        response += "• \"I learned that Python is great for automation\"\n"
+        response += "• \"Task: Finish my project by Friday\"\n"
+        response += "• \"https://example.com interesting article\"\n"
+        response += "• \"Remind me to call mom tomorrow\"\n"
+        response += "• `/help` - See all features\n\n"
+        response += "Once you save some content, I'll be much more helpful!"
+    
+    response += f"\n🤖 *Why I'm unsure: {reasoning}*"
     
     await update.message.reply_text(response, parse_mode='Markdown')
