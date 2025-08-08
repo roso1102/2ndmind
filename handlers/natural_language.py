@@ -126,11 +126,25 @@ RESPOND WITH VALID JSON ONLY:
         
         # Parse JSON response
         import json
+        import re
         try:
+            # First try direct JSON parsing
             result = json.loads(result_text)
             logger.info(f"🤖 AI classified '{message[:30]}...' as {result['intent']} (confidence: {result['confidence']})")
             return result
         except json.JSONDecodeError:
+            # Try to extract JSON from response text
+            try:
+                # Look for JSON pattern in the response
+                json_match = re.search(r'\{[^}]*"intent"[^}]*\}', result_text)
+                if json_match:
+                    json_str = json_match.group(0)
+                    result = json.loads(json_str)
+                    logger.info(f"🤖 AI classified '{message[:30]}...' as {result['intent']} (extracted from text)")
+                    return result
+            except json.JSONDecodeError:
+                pass
+            
             # Log the actual AI response for debugging
             logger.warning(f"❌ AI returned invalid JSON: {result_text}")
             
