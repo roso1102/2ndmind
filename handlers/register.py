@@ -24,11 +24,9 @@ async def register_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Simple registration - just create user record
         success = user_manager.register_user(
             user_id=user_id,
-            notion_token="",  # Not needed for Supabase
-            db_notes="",      # Not needed
-            db_links="",      # Not needed  
-            db_reminders="",  # Not needed
-            telegram_username=username
+            telegram_username=username,
+            first_name=first_name,
+            last_name=update.effective_user.last_name
         )
         
         if success:

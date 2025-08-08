@@ -26,10 +26,8 @@ class User:
     """User data model."""
     user_id: str
     telegram_username: Optional[str]
-    notion_token: Optional[str]  # This will be encrypted in storage
-    db_notes: Optional[str]
-    db_links: Optional[str] 
-    db_reminders: Optional[str]
+    first_name: Optional[str]
+    last_name: Optional[str]
     created_at: datetime
     last_active: datetime
     is_active: bool = True
@@ -74,25 +72,19 @@ class UserManager:
             logger.error(f"❌ Failed to initialize Supabase client: {e}")
             self.supabase = None
     
-    def register_user(self, user_id: str, notion_token: str, 
-                     db_notes: str, db_links: str, db_reminders: str,
-                     telegram_username: Optional[str] = None) -> bool:
-        """Register a new user with their Notion workspace details."""
+    def register_user(self, user_id: str, telegram_username: Optional[str] = None, 
+                     first_name: Optional[str] = None, last_name: Optional[str] = None) -> bool:
+        """Register a new user in the Supabase system."""
         if not self.supabase:
             logger.error("❌ Supabase client not initialized - cannot register user")
             return False
             
         try:
-            # Encrypt the Notion token
-            encrypted_token = encrypt_user_token(user_id, notion_token)
-            
             user_data = {
                 'user_id': user_id,
                 'telegram_username': telegram_username,
-                'encrypted_notion_token': encrypted_token,
-                'db_notes': db_notes,
-                'db_links': db_links,
-                'db_reminders': db_reminders,
+                'first_name': first_name,
+                'last_name': last_name,
                 'last_active': datetime.utcnow().isoformat(),
                 'is_active': True
             }
@@ -121,21 +113,12 @@ class UserManager:
             
             row = result.data[0]
             
-            # Decrypt the Notion token
-            decrypted_token = None
-            if row.get('encrypted_notion_token'):
-                decrypted_token = decrypt_user_token(user_id, row['encrypted_notion_token'])
-            
-            # Return in format expected by notion_client
+            # Return user data in clean format
             return {
                 'user_id': row['user_id'],
                 'telegram_username': row.get('telegram_username'),
-                'notion_token': decrypted_token,
-                'notion_databases': {
-                    'notes': row.get('db_notes'),
-                    'links': row.get('db_links'),
-                    'reminders': row.get('db_reminders')
-                },
+                'first_name': row.get('first_name'),
+                'last_name': row.get('last_name'),
                 'created_at': row.get('created_at'),
                 'last_active': row.get('last_active'),
                 'is_active': bool(row.get('is_active', True))
@@ -159,9 +142,9 @@ class UserManager:
             return False
     
     def is_user_registered(self, user_id: str) -> bool:
-        """Check if a user is registered and has valid Notion token."""
+        """Check if a user is registered."""
         user = self.get_user(user_id)
-        return user is not None and user.notion_token is not None
+        return user is not None and user.get('is_active', False)
     
     def deactivate_user(self, user_id: str) -> bool:
         """Deactivate a user (soft delete)."""
@@ -186,17 +169,11 @@ class UserManager:
             
             users = []
             for row in result.data:
-                decrypted_token = None
-                if row.get('encrypted_notion_token'):
-                    decrypted_token = decrypt_user_token(row['user_id'], row['encrypted_notion_token'])
-                
                 users.append(User(
                     user_id=row['user_id'],
                     telegram_username=row.get('telegram_username'),
-                    notion_token=decrypted_token,
-                    db_notes=row.get('db_notes'),
-                    db_links=row.get('db_links'),
-                    db_reminders=row.get('db_reminders'),
+                    first_name=row.get('first_name'),
+                    last_name=row.get('last_name'),
                     created_at=datetime.fromisoformat(row['created_at'].replace('Z', '+00:00')) if row.get('created_at') else datetime.utcnow(),
                     last_active=datetime.fromisoformat(row['last_active'].replace('Z', '+00:00')) if row.get('last_active') else datetime.utcnow(),
                     is_active=bool(row.get('is_active', True))
@@ -219,14 +196,10 @@ class UserManager:
             active_result = self.supabase.table('users').select('user_id', count='exact').eq('is_active', True).execute()
             active_users = active_result.count or 0
             
-            # Get registered users (those with tokens)
-            registered_result = self.supabase.table('users').select('user_id', count='exact').not_.is_('encrypted_notion_token', 'null').execute()
-            registered_users = registered_result.count or 0
-            
             return {
                 'total_users': total_users,
                 'active_users': active_users, 
-                'registered_users': registered_users
+                'registered_users': active_users  # Same as active since registration is simple now
             }
                 
         except Exception as e:
