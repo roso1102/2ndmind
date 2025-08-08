@@ -12,6 +12,9 @@ import asyncio
 import re
 from typing import Dict, Optional
 
+# Import content management
+from handlers.content_management import content_manager
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -243,6 +246,16 @@ async def process_natural_message(update, context=None) -> None:
     logger.info(f"📝 Processing message from user {user_id}: '{user_message[:50]}...'")
     
     try:
+        # First check if it's a content management command (delete, complete, edit)
+        if content_manager.is_management_command(user_message):
+            result = await content_manager.handle_management_command(user_id, user_message)
+            
+            if result.get('success'):
+                await update.message.reply_text(result['message'])
+            else:
+                await update.message.reply_text(f"❌ {result.get('error', 'Management command failed')}")
+            return
+        
         # Classify the message intent
         classification = await classifier.classify_message(user_message)
         intent = classification['intent']

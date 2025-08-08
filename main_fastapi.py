@@ -32,7 +32,7 @@ API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
 # Import handlers
 from handlers.registration import handle_register_command, check_user_registration
-# NOTE: Natural language processing temporarily removed for debugging
+from handlers.natural_language import process_natural_message
 
 def log(message, level="INFO"):
     """Simple logging function"""
@@ -128,12 +128,18 @@ async def telegram_webhook(request: Request):
                     help_text = """
 🤖 *MySecondMind Help*
 
-*Commands:*
+*Basic Commands:*
 • /start - Welcome message
 • /register - Connect your Notion workspace
 • /help - Show this help
 • /status - Bot status
 • /health - Health check
+
+*Content Management:*
+• /delete 5 - Delete content by ID
+• /complete 3 - Mark task as complete
+• /edit 7 new content - Edit content
+• /remove task 5 - Remove specific task
 
 *Natural Language:*
 Just chat with me naturally! I can understand and respond to:
@@ -141,12 +147,15 @@ Just chat with me naturally! I can understand and respond to:
 • Links to bookmark
 • Reminders to set
 • Questions about your saved content
+• Content management: "delete task 5", "complete 3", "edit note 7"
 
 Try saying things like:
 • "I learned something interesting today..."
 • "Read later: https://example.com"
 • "Remind me to call mom tomorrow"
 • "What did I save about productivity?"
+• "Delete task 5"
+• "Mark task 3 as done"
 """
                     await send_message(chat_id, help_text)
                     return {"ok": True}
@@ -192,15 +201,101 @@ Try saying things like:
                     await send_message(chat_id, "🟢 Bot is healthy and running!")
                     return {"ok": True}
                 
+                # Content Management Commands
+                elif cmd in ["/delete", "/remove"]:
+                    # Handle delete commands like "/delete 5" or "/delete task 3"
+                    parts = text.split()[1:] if len(text.split()) > 1 else []
+                    if not parts:
+                        await send_message(chat_id, "❓ Please specify what to delete.\nExamples:\n• /delete 5\n• /delete task 3")
+                        return {"ok": True}
+                    
+                    # Convert to natural language format
+                    delete_message = f"delete {' '.join(parts)}"
+                    
+                    # Import content manager
+                    from handlers.content_management import content_manager
+                    result = await content_manager.handle_management_command(user_id, delete_message)
+                    
+                    if result.get('success'):
+                        await send_message(chat_id, result['message'])
+                    else:
+                        await send_message(chat_id, f"❌ {result.get('error', 'Delete failed')}")
+                    return {"ok": True}
+                
+                elif cmd in ["/complete", "/done"]:
+                    # Handle completion commands like "/complete 5" or "/done task 3"
+                    parts = text.split()[1:] if len(text.split()) > 1 else []
+                    if not parts:
+                        await send_message(chat_id, "❓ Please specify which task to complete.\nExamples:\n• /complete 5\n• /done task 3")
+                        return {"ok": True}
+                    
+                    # Convert to natural language format
+                    complete_message = f"complete {' '.join(parts)}"
+                    
+                    from handlers.content_management import content_manager
+                    result = await content_manager.handle_management_command(user_id, complete_message)
+                    
+                    if result.get('success'):
+                        await send_message(chat_id, result['message'])
+                    else:
+                        await send_message(chat_id, f"❌ {result.get('error', 'Complete failed')}")
+                    return {"ok": True}
+                
+                elif cmd in ["/edit", "/update"]:
+                    # Handle edit commands like "/edit 5 new content"
+                    parts = text.split()[1:] if len(text.split()) > 1 else []
+                    if len(parts) < 2:
+                        await send_message(chat_id, "❓ Please specify what to edit.\nExamples:\n• /edit 5 new content\n• /update task 3 new description")
+                        return {"ok": True}
+                    
+                    # Convert to natural language format
+                    edit_message = f"edit {' '.join(parts)}"
+                    
+                    from handlers.content_management import content_manager
+                    result = await content_manager.handle_management_command(user_id, edit_message)
+                    
+                    if result.get('success'):
+                        await send_message(chat_id, result['message'])
+                    else:
+                        await send_message(chat_id, f"❌ {result.get('error', 'Edit failed')}")
+                    return {"ok": True}
+                
                 else:
                     # Unknown command
                     await send_message(chat_id, f"❓ Unknown command: {cmd}\n\nUse /help to see available commands.")
                     return {"ok": True}
             
-            # For now, respond to non-commands with a simple message
+            # For non-commands, use natural language processing
             else:
-                log(f"💬 Non-command message received: {text}")
-                await send_message(chat_id, "🤖 I received your message! For now, I only respond to commands. Use /help to see available commands.")
+                log(f"💬 Processing natural language message: {text[:50]}...")
+                
+                # Create mock update object for natural language handler
+                class MockUpdate:
+                    def __init__(self, text, chat_id, user_id, username):
+                        self.message = MockMessage(text, chat_id)
+                        self.effective_user = MockUser(user_id, username)
+                
+                class MockMessage:
+                    def __init__(self, text, chat_id):
+                        self.text = text
+                        self.chat_id = chat_id
+                        
+                    async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
+                        await send_message(self.chat_id, response)
+                
+                class MockUser:
+                    def __init__(self, user_id, username):
+                        self.id = int(user_id)
+                        self.username = username
+                
+                try:
+                    mock_update = MockUpdate(text, chat_id, user_id, message.get("from", {}).get("username"))
+                    await process_natural_message(mock_update)
+                    log(f"✅ Natural language processing completed for user {user_id}")
+                except Exception as e:
+                    log(f"❌ Error in natural language processing: {e}", "ERROR")
+                    await send_message(chat_id, "🤔 I had trouble understanding that. Could you try rephrasing or use /help for commands?")
+                
                 return {"ok": True}
         
         else:

@@ -587,5 +587,100 @@ class SupabaseContentHandler:
         except:
             return url[:50]
 
+    # ==========================================
+    # CRUD OPERATIONS - UPDATE & DELETE
+    # ==========================================
+    
+    async def update_content(self, user_id: str, content_id: str, updates: Dict) -> Dict:
+        """Update existing content (notes, links, tasks, reminders)."""
+        try:
+            if not self.supabase:
+                return {"success": False, "error": "Supabase not initialized"}
+            
+            # Add updated timestamp
+            updates['updated_at'] = datetime.now(timezone.utc).isoformat()
+            
+            # Update content in database
+            result = self.supabase.table('user_content').update(updates).eq('id', content_id).eq('user_id', user_id).execute()
+            
+            if result.get('data') and len(result['data']) > 0:
+                updated_item = result['data'][0]
+                return {
+                    "success": True,
+                    "updated_item": updated_item,
+                    "message": f"Content updated successfully!"
+                }
+            else:
+                return {"success": False, "error": "Content not found or no changes made"}
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to update content: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def delete_content(self, user_id: str, content_id: str) -> Dict:
+        """Delete content by ID."""
+        try:
+            if not self.supabase:
+                return {"success": False, "error": "Supabase not initialized"}
+            
+            # Get content details before deletion for confirmation
+            get_result = self.supabase.table('user_content').select('*').eq('id', content_id).eq('user_id', user_id).execute()
+            
+            if not get_result.get('data') or len(get_result['data']) == 0:
+                return {"success": False, "error": "Content not found"}
+            
+            deleted_item = get_result['data'][0]
+            
+            # Delete content from database
+            result = self.supabase.table('user_content').delete().eq('id', content_id).eq('user_id', user_id).execute()
+            
+            if result.get('data') is not None:
+                return {
+                    "success": True,
+                    "deleted_item": deleted_item,
+                    "message": f"Deleted {deleted_item.get('content_type', 'content')}: {deleted_item.get('title', 'Unknown')}"
+                }
+            else:
+                return {"success": False, "error": "Failed to delete content"}
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to delete content: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def mark_task_complete(self, user_id: str, task_id: str, completed: bool = True) -> Dict:
+        """Mark a task as completed or incomplete."""
+        try:
+            updates = {
+                'completed': completed,
+                'completed_at': datetime.now(timezone.utc).isoformat() if completed else None,
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            return await self.update_content(user_id, task_id, updates)
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to mark task complete: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def get_content_by_id(self, user_id: str, content_id: str) -> Dict:
+        """Get a specific content item by ID."""
+        try:
+            if not self.supabase:
+                return {"success": False, "error": "Supabase not initialized"}
+            
+            result = self.supabase.table('user_content').select('*').eq('id', content_id).eq('user_id', user_id).execute()
+            
+            if result.get('data') and len(result['data']) > 0:
+                return {
+                    "success": True,
+                    "content": result['data'][0]
+                }
+            else:
+                return {"success": False, "error": "Content not found"}
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to get content: {e}")
+            return {"success": False, "error": str(e)}
+
 # Global instance
 content_handler = SupabaseContentHandler()
