@@ -370,24 +370,153 @@ class SupabaseContentHandler:
         return list(set(tags))  # Remove duplicates
     
     async def _extract_url_title(self, url: str) -> Optional[str]:
-        """Extract title from URL."""
+        """Extract title from URL with better handling for video sites."""
         try:
-            import requests
-            from bs4 import BeautifulSoup
+            # Special handling for YouTube
+            if 'youtu.be' in url or 'youtube.com' in url:
+                return await self._extract_youtube_title(url)
             
-            response = requests.get(url, timeout=5, headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            })
+            # Special handling for Instagram
+            if 'instagram.com' in url:
+                return await self._extract_instagram_title(url)
             
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.content, 'html.parser')
-                title_tag = soup.find('title')
-                if title_tag:
-                    return title_tag.get_text().strip()
+            # General web scraping
+            import httpx
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive'
+            }
+            
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(url, headers=headers, follow_redirects=True)
+                
+                if response.status_code == 200:
+                    # Try to parse with BeautifulSoup
+                    try:
+                        from bs4 import BeautifulSoup
+                        soup = BeautifulSoup(response.content, 'html.parser')
+                        
+                        # Try different title extraction methods
+                        title = None
+                        
+                        # Method 1: Standard title tag
+                        title_tag = soup.find('title')
+                        if title_tag:
+                            title = title_tag.get_text().strip()
+                        
+                        # Method 2: Open Graph title
+                        if not title or len(title) < 3:
+                            og_title = soup.find('meta', property='og:title')
+                            if og_title:
+                                title = og_title.get('content', '').strip()
+                        
+                        # Method 3: Twitter title
+                        if not title or len(title) < 3:
+                            twitter_title = soup.find('meta', attrs={'name': 'twitter:title'})
+                            if twitter_title:
+                                title = twitter_title.get('content', '').strip()
+                        
+                        if title and len(title) > 3:
+                            # Clean up the title
+                            title = title.replace('\n', ' ').replace('\r', ' ')
+                            title = ' '.join(title.split())  # Remove extra whitespace
+                            return title[:100]  # Limit length
+                            
+                    except ImportError:
+                        logger.warning("BeautifulSoup not available, using simple parsing")
+                        # Fallback: simple regex title extraction
+                        import re
+                        title_match = re.search(r'<title[^>]*>([^<]*)</title>', response.text, re.IGNORECASE)
+                        if title_match:
+                            title = title_match.group(1).strip()
+                            if title and len(title) > 3:
+                                return title[:100]
+                        
         except Exception as e:
             logger.debug(f"Could not extract title from {url}: {e}")
         
         return self._extract_domain_from_url(url)
+    
+    async def _extract_youtube_title(self, url: str) -> Optional[str]:
+        """Extract YouTube video title."""
+        try:
+            # Extract video ID from URL
+            import re
+            video_id = None
+            
+            # Handle different YouTube URL formats
+            patterns = [
+                r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]{11})',
+                r'youtube\.com/watch\?.*v=([a-zA-Z0-9_-]{11})'
+            ]
+            
+            for pattern in patterns:
+                match = re.search(pattern, url)
+                if match:
+                    video_id = match.group(1)
+                    break
+            
+            if video_id:
+                # Try to get title using oembed API (doesn't require API key)
+                import httpx
+                oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
+                
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    response = await client.get(oembed_url)
+                    if response.status_code == 200:
+                        data = response.json()
+                        title = data.get('title', '')
+                        if title:
+                            return title[:100]
+                            
+        except Exception as e:
+            logger.debug(f"Could not extract YouTube title from {url}: {e}")
+        
+        return "YouTube Video"
+    
+    async def _extract_instagram_title(self, url: str) -> Optional[str]:
+        """Extract Instagram post title/description."""
+        try:
+            # Instagram is very restrictive, so we'll try basic scraping
+            import httpx
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(url, headers=headers, follow_redirects=True)
+                
+                if response.status_code == 200:
+                    try:
+                        from bs4 import BeautifulSoup
+                        soup = BeautifulSoup(response.content, 'html.parser')
+                        
+                        # Try to get Open Graph title
+                        og_title = soup.find('meta', property='og:title')
+                        if og_title:
+                            title = og_title.get('content', '').strip()
+                            if title and title != 'Instagram':
+                                return title[:100]
+                        
+                        # Try to get description
+                        og_desc = soup.find('meta', property='og:description')
+                        if og_desc:
+                            desc = og_desc.get('content', '').strip()
+                            if desc and len(desc) > 10:
+                                return desc[:100]
+                                
+                    except ImportError:
+                        pass
+                        
+        except Exception as e:
+            logger.debug(f"Could not extract Instagram title from {url}: {e}")
+        
+        return "Instagram Post"
     
     def _extract_domain_from_url(self, url: str) -> str:
         """Extract domain from URL."""
