@@ -349,61 +349,50 @@ async def handle_question_intent(update, context, message: str, classification: 
         search_term = extract_search_term(message_lower)
         
         if search_term:
-            # Perform actual search
+            # Perform actual search using the dedicated search engine
             try:
-                from handlers.supabase_content import content_handler
+                from core.search_engine import get_search_engine
+                search_engine = get_search_engine()
                 
-                # Search all content types for the term
-                all_content = await content_handler.get_user_content(user_id, limit=100)
+                # Use the advanced search engine
+                search_result = await search_engine.search(user_id, search_term, limit=5)
                 
-                if all_content["success"]:
-                    # Simple text search within results
-                    results = []
-                    for item in all_content["content"]:
-                        title = item.get('title', '').lower()
-                        content = item.get('content', '').lower()
-                        
-                        if search_term in title or search_term in content:
-                            results.append(item)
+                if search_result.get("success") and search_result.get("results"):
+                    results = search_result["results"]
+                    response = f"🔍 Found {len(results)} result(s) for '{search_term}':\n\n"
                     
-                    if results:
-                        response = f"🔍 Found {len(results)} result(s) for '{search_term}':\n\n"
+                    for item in results:
+                        content_type = item.get('type', 'unknown')
+                        title = item.get('title', 'Untitled')
+                        snippet = item.get('snippet', item.get('content', ''))
+                        created_at = item.get('created_at', '')
                         
-                        for item in results[:5]:  # Show top 5 results
-                            content_type = item.get('type', 'unknown')
-                            title = item.get('title', 'Untitled')
-                            content_text = item.get('content', '')
-                            created_at = item.get('created_at', '')
-                            
-                            # Format based on type
-                            if content_type == 'note':
-                                response += f"📝 Note: {title}\n"
-                                response += f"   {content_text[:100]}{'...' if len(content_text) > 100 else ''}\n"
-                            elif content_type == 'link':
-                                response += f"🔗 Link: {title}\n"
-                                response += f"   {item.get('url', '')}\n"
-                            elif content_type == 'task':
-                                status = item.get('status', 'pending')
-                                status_emoji = '✅' if status == 'completed' else '📋'
-                                response += f"{status_emoji} Task: {title}\n"
-                                response += f"   {content_text[:100]}{'...' if len(content_text) > 100 else ''}\n"
-                            elif content_type == 'reminder':
-                                response += f"⏰ Reminder: {title}\n"
-                                response += f"   {content_text[:100]}{'...' if len(content_text) > 100 else ''}\n"
-                            
-                            response += f"   📅 {created_at[:10]}\n\n"
+                        # Format based on type
+                        if content_type == 'note':
+                            response += f"📝 Note: {title}\n"
+                            response += f"   {snippet[:100]}{'...' if len(snippet) > 100 else ''}\n"
+                        elif content_type == 'link':
+                            response += f"🔗 Link: {title}\n"
+                            response += f"   {item.get('url', '')}\n"
+                        elif content_type == 'task':
+                            status = item.get('status', 'pending')
+                            status_emoji = '✅' if status == 'completed' else '📋'
+                            response += f"{status_emoji} Task: {title}\n"
+                            response += f"   {snippet[:100]}{'...' if len(snippet) > 100 else ''}\n"
+                        elif content_type == 'reminder':
+                            response += f"⏰ Reminder: {title}\n"
+                            response += f"   {snippet[:100]}{'...' if len(snippet) > 100 else ''}\n"
                         
-                        if len(results) > 5:
-                            response += f"... and {len(results) - 5} more results.\n"
-                            response += f"Use `/search {search_term}` to see all results."
-                    else:
-                        response = f"🔍 No results found for '{search_term}'.\n\n"
-                        response += "Try:\n"
-                        response += "• Different keywords\n"
-                        response += "• `/notes`, `/tasks`, `/links` to browse all content\n"
-                        response += "• `/search` for search help"
+                        response += f"   📅 {created_at[:10]}\n\n"
+                    
+                    if len(results) >= 5:
+                        response += f"Use `/search {search_term}` to see more results."
                 else:
-                    response = "❌ Error searching your content. Please try again."
+                    response = f"🔍 No results found for '{search_term}'.\n\n"
+                    response += "Try:\n"
+                    response += "• Different keywords\n"
+                    response += "• /notes, /tasks, /links to browse all content\n"
+                    response += "• /search for search help"
                     
             except Exception as e:
                 logger.error(f"Search error: {e}")

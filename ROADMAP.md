@@ -158,6 +158,29 @@ MySecondMind is not just a note-taking bot. It's a comprehensive personal AI ass
   - Context-aware responses with relevant information
   - Intelligent search ranking and relevance
 
+- **Advanced Search Engine**: 🔄 **IN PROGRESS**
+  - **✅ Phase 1 - Enhanced Text Search (Quick Wins)**:
+    - ✅ Dedicated search engine (`core/search_engine.py`)
+    - ✅ Query preprocessing and cleaning
+    - ✅ Abbreviation expansion (AI → artificial intelligence)
+    - ✅ Synonym mapping for better matches
+    - ✅ Fuzzy search with typo tolerance
+    - ✅ Relevance scoring and result ranking
+    - ✅ Smart snippet generation with context
+  
+  - **🔄 Phase 2 - Semantic Search (Medium Priority)**:
+    - [ ] Sentence transformers integration
+    - [ ] Content embeddings generation
+    - [ ] Supabase pgvector setup
+    - [ ] Vector similarity search
+    - [ ] Hybrid search (keyword + semantic)
+  
+  - **⏰ Phase 3 - AI-Powered Search (Future)**:
+    - [ ] Groq-powered query understanding
+    - [ ] Complex query parsing ("recent AI notes from last week")
+    - [ ] Personalized search ranking
+    - [ ] Search learning from user behavior
+
 - **Enhanced LLM integration**:
   - Provide user's relevant Supabase data as context to Groq
   - Smarter summarization and insights
@@ -243,6 +266,7 @@ MySecondMind/
 │   └── resurfacing.py          # Content resurfacing engine
 ├── core/
 │   ├── supabase_rest.py        # Custom Supabase REST client ✅
+│   ├── search_engine.py        # Advanced search engine ✅
 │   ├── scheduler.py            # Background task management
 │   ├── weather_api.py          # OpenWeatherMap integration
 │   └── search_engine.py        # Semantic search & memory
@@ -260,6 +284,7 @@ MySecondMind/
 - **Backend**: FastAPI, Uvicorn
 - **AI/NLP**: Groq (LLaMA 3), intelligent intent classification
 - **Storage**: Supabase PostgreSQL (primary database), full-text search
+- **Search**: Multi-layered search engine (PostgreSQL FTS + fuzzy + future semantic)
 - **Security**: Row Level Security (RLS), per-user data isolation
 - **Scheduling**: APScheduler for background tasks
 - **File Processing**: PyMuPDF, Pillow, Tesseract OCR
