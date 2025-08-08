@@ -381,25 +381,36 @@ async def handle_question_intent(update, context, message: str, classification: 
                         snippet = item.get('snippet', item.get('content', ''))
                         created_at = item.get('created_at', '')
                         
+                        # Clean and truncate text to prevent Telegram API errors
+                        title = str(title).replace('\n', ' ').replace('\r', '')[:100]
+                        snippet = str(snippet).replace('\n', ' ').replace('\r', '')[:100]
+                        
                         # Format based on type
                         if content_type == 'note':
                             response += f"📝 Note: {title}\n"
-                            response += f"   {snippet[:100]}{'...' if len(snippet) > 100 else ''}\n"
+                            response += f"   {snippet}{'...' if len(str(item.get('content', ''))) > 100 else ''}\n"
                         elif content_type == 'link':
+                            url = str(item.get('url', '')).replace('\n', ' ').replace('\r', '')
                             response += f"🔗 Link: {title}\n"
-                            response += f"   {item.get('url', '')}\n"
+                            response += f"   {url}\n"
                         elif content_type == 'task':
                             completed = item.get('completed', False)
                             status_emoji = '✅' if completed else '📋'
                             response += f"{status_emoji} Task: {title}\n"
-                            response += f"   {snippet[:100]}{'...' if len(snippet) > 100 else ''}\n"
+                            response += f"   {snippet}{'...' if len(str(item.get('content', ''))) > 100 else ''}\n"
                         elif content_type == 'reminder':
                             response += f"⏰ Reminder: {title}\n"
-                            response += f"   {snippet[:100]}{'...' if len(snippet) > 100 else ''}\n"
+                            response += f"   {snippet}{'...' if len(str(item.get('content', ''))) > 100 else ''}\n"
                         
-                        response += f"   📅 {created_at[:10]}\n\n"
+                        response += f"   📅 {created_at[:10] if created_at else 'Unknown'}\n\n"
+                        
+                        # Prevent message from getting too long (Telegram limit: 4096 chars)
+                        if len(response) > 3500:
+                            response += f"... and {len(results) - (results.index(item) + 1)} more results.\n"
+                            response += f"Use `/search {search_term}` for complete results."
+                            break
                     
-                    if len(results) >= 5:
+                    if len(results) >= 5 and len(response) <= 3500:
                         response += f"Use `/search {search_term}` to see more results."
                 else:
                     response = f"🔍 No results found for '{search_term}'.\n\n"
@@ -459,7 +470,18 @@ async def handle_question_intent(update, context, message: str, classification: 
         response += "• \"Show me my recent content\"\n\n"
         response += "Or just type `/help` for a complete guide!"
     
-    await update.message.reply_text(response, parse_mode='Markdown')
+    # Try sending with Markdown, fallback to plain text if it fails
+    try:
+        await update.message.reply_text(response, parse_mode='Markdown')
+    except Exception as e:
+        logger.warning(f"Failed to send with Markdown, trying plain text: {e}")
+        try:
+            # Remove markdown formatting and try again
+            plain_response = response.replace('*', '').replace('_', '').replace('`', '')
+            await update.message.reply_text(plain_response)
+        except Exception as e2:
+            logger.error(f"Failed to send message entirely: {e2}")
+            await update.message.reply_text("❌ Sorry, there was an error sending your search results. Please try again.")
 
 async def handle_greeting_intent(update, context, message: str, classification: Dict) -> None:
     """Handle greetings and casual conversation starters."""
