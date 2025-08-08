@@ -55,10 +55,10 @@ class IntentClassifier:
         """Use Groq/Llama3 for intent classification."""
         
         prompt = f"""
-Classify this message into ONE of these intents:
+Classify this message into ONE of these intents with HIGH priority for URLs:
 
-1. GREETING - Hello, hi, greetings, casual conversation starters
-2. LINK - URLs, "read later", "save this link", web addresses
+1. LINK - URLs, web addresses, "read later", links to save (HIGHEST PRIORITY if URL present)
+2. GREETING - Hello, hi, greetings, casual conversation starters  
 3. NOTE - Saving information, ideas, thoughts, facts to remember
 4. TASK - Creating todos, assignments, action items, things to do
 5. REMINDER - Setting time-based alerts, "remind me", scheduled notifications
@@ -66,10 +66,16 @@ Classify this message into ONE of these intents:
 7. FILE - References to uploading, sharing, or processing files/documents
 8. OTHER - Everything else that doesn't fit above categories
 
+IMPORTANT RULES:
+- If message contains http:// or https://, classify as LINK even if it has other content
+- "I learned about https://..." = LINK (not NOTE)
+- "Check out https://..." = LINK (not NOTE)
+- URLs with context should be LINK, the context will be saved with the URL
+
 Message: "{message}"
 
 Respond ONLY with a JSON object like this:
-{{"intent": "NOTE", "confidence": 0.95, "reasoning": "User wants to save information for later"}}
+{{"intent": "LINK", "confidence": 0.95, "reasoning": "Contains URL - should be saved as link with context"}}
 """
 
         response = self.groq_client.chat.completions.create(
@@ -266,22 +272,62 @@ async def handle_reminder_intent(update, context, message: str, classification: 
     await update.message.reply_text(response, parse_mode='Markdown')
 
 async def handle_question_intent(update, context, message: str, classification: Dict) -> None:
-    """Handle questions and help requests."""
+    """Handle questions about saved content and general inquiries."""
     
     confidence = classification['confidence']
+    user_id = str(update.effective_user.id)
+    message_lower = message.lower()
     
-    response = f"❓ **Question/Search Detected** (confidence: {confidence:.0%})\n\n"
-    response += f"Your question: *{message}*\n\n"
-    response += "🚧 **Personal Knowledge Search** coming soon!\n\n"
-    response += "**What I'll be able to do:**\n"
-    response += f"• 🧠 **Search Memory**: \"What did I save about productivity?\"\n"
-    response += f"• 🔍 **Semantic Search**: Find related ideas and concepts\n"
-    response += f"• 📊 **Smart Insights**: Summarize patterns in your data\n"
-    response += f"• 🎯 **Contextual Answers**: Responses based on your saved knowledge\n\n"
-    response += "**For now, try these commands:**\n"
-    response += "• `/help` - Available features\n"
-    response += "• `/status` - Bot health\n\n"
-    response += "💡 *Soon I'll be your personal knowledge search engine!*"
+    # Check if it's a search-related question
+    search_keywords = ['what did i save', 'search', 'find', 'show me', 'what do i have', 'content', 'saved']
+    is_search_question = any(keyword in message_lower for keyword in search_keywords)
+    
+    if is_search_question:
+        response = f"🔍 **Great question!** Here's how to find your content:\n\n"
+        
+        # Check if they have any content first
+        try:
+            from handlers.supabase_content import content_handler
+            result = await content_handler.get_user_content(user_id, limit=1)
+            has_content = result.get("success") and result.get("count", 0) > 0
+        except:
+            has_content = False
+        
+        if has_content:
+            response += "**🎯 Quick Commands:**\n"
+            response += "• `/notes` - Show your recent notes\n"
+            response += "• `/tasks` - Show your tasks and TODOs\n"
+            response += "• `/links` - Show your saved links\n"
+            response += "• `/stats` - See your content statistics\n\n"
+            response += "**🔍 Search Commands:**\n"
+            response += "• `/search productivity` - Find all productivity content\n"
+            response += "• `/search notes python` - Find Python-related notes\n"
+            response += "• `/search tasks urgent` - Find urgent tasks\n\n"
+            response += "**💡 Try these examples:**\n"
+            response += "• `/search today` - Content from today\n"
+            response += "• `/search fastapi` - FastAPI-related content\n"
+            response += "• `/search meeting` - Meeting-related items"
+        else:
+            response += "**📱 You haven't saved any content yet!**\n\n"
+            response += "**Get started by saying:**\n"
+            response += "• \"I learned that Supabase is awesome\"\n"
+            response += "• \"Task: Finish the project report\"\n"
+            response += "• \"https://fastapi.tiangolo.com great framework\"\n"
+            response += "• \"Remind me to call mom tomorrow\"\n\n"
+            response += "Once you save some content, use `/search`, `/notes`, `/tasks`, `/links` to find it!"
+    else:
+        # General help response
+        response = f"❓ **I'm here to help!** (confidence: {confidence:.0%})\n\n"
+        response += "**🤖 What I can do:**\n"
+        response += "• 📝 Save your notes and ideas\n"
+        response += "• 📋 Manage tasks and reminders\n"
+        response += "• 🔗 Bookmark links for later\n"
+        response += "• 🔍 Search your saved content\n\n"
+        response += "**� Try asking:**\n"
+        response += "• \"How do I save a note?\"\n"
+        response += "• \"What commands are available?\"\n"
+        response += "• \"Show me my recent content\"\n\n"
+        response += "Or just type `/help` for a complete guide!"
     
     await update.message.reply_text(response, parse_mode='Markdown')
 
