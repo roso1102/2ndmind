@@ -59,15 +59,18 @@ async def check_user_registration(mock_update, chat_id):
             "This will set up your personal Second Brain! 🧠")
         return False
 
-async def send_message(chat_id, text):
+async def send_message(chat_id, text, parse_mode=None):
     """Send a message to Telegram chat."""
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(f"{API_URL}/sendMessage", json={
+            payload = {
                 "chat_id": chat_id,
-                "text": text,
-                "parse_mode": "Markdown"
-            })
+                "text": text
+            }
+            if parse_mode:
+                payload["parse_mode"] = parse_mode
+                
+            response = await client.post(f"{API_URL}/sendMessage", json=payload)
             return response.json()
     except Exception as e:
         log(f"Error sending message: {e}", level="ERROR")
@@ -293,7 +296,7 @@ Just talk to me naturally! I understand:
                             self.chat_id = chat_id
                             
                         async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
-                            await send_message(self.chat_id, response)
+                            await send_message(self.chat_id, response, parse_mode)
                     
                     class MockUser:
                         def __init__(self, user_id, username, first_name=None, last_name=None):
@@ -344,7 +347,7 @@ Just talk to me naturally! I understand:
                             self.chat_id = chat_id
                             
                         async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
-                            await send_message(self.chat_id, response)
+                            await send_message(self.chat_id, response, parse_mode)
                     
                     class MockUser:
                         def __init__(self, user_id, username, first_name=None, last_name=None):
@@ -389,7 +392,7 @@ Just talk to me naturally! I understand:
                                 self.chat_id = chat_id
                                 
                             async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
-                                await send_message(self.chat_id, response)
+                                await send_message(self.chat_id, response, parse_mode)
                         
                         class MockUser:
                             def __init__(self, user_id, username, first_name=None, last_name=None):
@@ -431,7 +434,7 @@ Just talk to me naturally! I understand:
                                 self.chat_id = chat_id
                                 
                             async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
-                                await send_message(self.chat_id, response)
+                                await send_message(self.chat_id, response, parse_mode)
                         
                         class MockUser:
                             def __init__(self, user_id, username, first_name=None, last_name=None):
@@ -473,7 +476,7 @@ Just talk to me naturally! I understand:
                                 self.chat_id = chat_id
                                 
                             async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
-                                await send_message(self.chat_id, response)
+                                await send_message(self.chat_id, response, parse_mode)
                         
                         class MockUser:
                             def __init__(self, user_id, username, first_name=None, last_name=None):
@@ -523,7 +526,7 @@ Just talk to me naturally! I understand:
                                 self.chat_id = chat_id
                                 
                             async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
-                                await send_message(self.chat_id, response)
+                                await send_message(self.chat_id, response, parse_mode)
                         
                         class MockUser:
                             def __init__(self, user_id, username, first_name=None, last_name=None):
@@ -570,7 +573,7 @@ Just talk to me naturally! I understand:
                             self.from_user = MockUser(user_id)
                             
                         async def reply_text(self, response, parse_mode=None):
-                            await send_message(self.chat_id, response)
+                            await send_message(self.chat_id, response, parse_mode)
                     
                     class MockUser:
                         def __init__(self, user_id):
