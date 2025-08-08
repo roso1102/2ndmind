@@ -8,3 +8,4 @@ cryptography>=43.0.0
 supabase>=2.8.0
 notion-client>=2.2.0
 python-telegram-bot>=21.0.0
+requests>=2.31.0
