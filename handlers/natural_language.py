@@ -9,10 +9,40 @@ using Groq's Llama3 model for understanding user messages and routing them appro
 import os
 import logging
 import asyncio
+import re
 from typing import Dict, Optional
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+def extract_search_term(message: str) -> Optional[str]:
+    """Extract search term from natural language questions."""
+    message_lower = message.lower().strip()
+    
+    # Common patterns for "what did I save about X"
+    patterns = [
+        r'what did i save about (.+)',
+        r'what did i save (.+)',
+        r'find (.+)',
+        r'search for (.+)',
+        r'show me (.+)',
+        r'what do i have about (.+)',
+        r'do i have anything about (.+)',
+        r'saved about (.+)',
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, message_lower)
+        if match:
+            search_term = match.group(1).strip()
+            # Remove common stop words from the end
+            stop_words = ['?', 'please', 'thanks', 'thank you']
+            for stop_word in stop_words:
+                if search_term.endswith(stop_word):
+                    search_term = search_term[:-len(stop_word)].strip()
+            return search_term if search_term else None
+    
+    return None
 
 try:
     from groq import Groq
@@ -315,38 +345,103 @@ async def handle_question_intent(update, context, message: str, classification: 
     is_search_question = any(keyword in message_lower for keyword in search_keywords)
     
     if is_search_question:
-        response = f"🔍 **Great question!** Here's how to find your content:\n\n"
+        # Try to extract search term from the question
+        search_term = extract_search_term(message_lower)
         
-        # Check if they have any content first
-        try:
-            from handlers.supabase_content import content_handler
-            result = await content_handler.get_user_content(user_id, limit=1)
-            has_content = result.get("success") and result.get("count", 0) > 0
-        except:
-            has_content = False
-        
-        if has_content:
-            response += "**🎯 Quick Commands:**\n"
-            response += "• `/notes` - Show your recent notes\n"
-            response += "• `/tasks` - Show your tasks and TODOs\n"
-            response += "• `/links` - Show your saved links\n"
-            response += "• `/stats` - See your content statistics\n\n"
-            response += "**🔍 Search Commands:**\n"
-            response += "• `/search productivity` - Find all productivity content\n"
-            response += "• `/search notes python` - Find Python-related notes\n"
-            response += "• `/search tasks urgent` - Find urgent tasks\n\n"
-            response += "**💡 Try these examples:**\n"
-            response += "• `/search today` - Content from today\n"
-            response += "• `/search fastapi` - FastAPI-related content\n"
-            response += "• `/search meeting` - Meeting-related items"
+        if search_term:
+            # Perform actual search
+            try:
+                from handlers.supabase_content import content_handler
+                
+                # Search all content types for the term
+                all_content = await content_handler.get_user_content(user_id, limit=100)
+                
+                if all_content["success"]:
+                    # Simple text search within results
+                    results = []
+                    for item in all_content["content"]:
+                        title = item.get('title', '').lower()
+                        content = item.get('content', '').lower()
+                        
+                        if search_term in title or search_term in content:
+                            results.append(item)
+                    
+                    if results:
+                        response = f"🔍 Found {len(results)} result(s) for '{search_term}':\n\n"
+                        
+                        for item in results[:5]:  # Show top 5 results
+                            content_type = item.get('type', 'unknown')
+                            title = item.get('title', 'Untitled')
+                            content_text = item.get('content', '')
+                            created_at = item.get('created_at', '')
+                            
+                            # Format based on type
+                            if content_type == 'note':
+                                response += f"📝 Note: {title}\n"
+                                response += f"   {content_text[:100]}{'...' if len(content_text) > 100 else ''}\n"
+                            elif content_type == 'link':
+                                response += f"🔗 Link: {title}\n"
+                                response += f"   {item.get('url', '')}\n"
+                            elif content_type == 'task':
+                                status = item.get('status', 'pending')
+                                status_emoji = '✅' if status == 'completed' else '📋'
+                                response += f"{status_emoji} Task: {title}\n"
+                                response += f"   {content_text[:100]}{'...' if len(content_text) > 100 else ''}\n"
+                            elif content_type == 'reminder':
+                                response += f"⏰ Reminder: {title}\n"
+                                response += f"   {content_text[:100]}{'...' if len(content_text) > 100 else ''}\n"
+                            
+                            response += f"   📅 {created_at[:10]}\n\n"
+                        
+                        if len(results) > 5:
+                            response += f"... and {len(results) - 5} more results.\n"
+                            response += f"Use `/search {search_term}` to see all results."
+                    else:
+                        response = f"🔍 No results found for '{search_term}'.\n\n"
+                        response += "Try:\n"
+                        response += "• Different keywords\n"
+                        response += "• `/notes`, `/tasks`, `/links` to browse all content\n"
+                        response += "• `/search` for search help"
+                else:
+                    response = "❌ Error searching your content. Please try again."
+                    
+            except Exception as e:
+                logger.error(f"Search error: {e}")
+                response = "❌ Error searching your content. Please try again."
         else:
-            response += "**📱 You haven't saved any content yet!**\n\n"
-            response += "**Get started by saying:**\n"
-            response += "• \"I learned that Supabase is awesome\"\n"
-            response += "• \"Task: Finish the project report\"\n"
-            response += "• \"https://fastapi.tiangolo.com great framework\"\n"
-            response += "• \"Remind me to call mom tomorrow\"\n\n"
-            response += "Once you save some content, use `/search`, `/notes`, `/tasks`, `/links` to find it!"
+            # Fallback to help text if we can't extract a search term
+            response = f"🔍 Great question! Here's how to find your content:\n\n"
+            
+            # Check if they have any content first
+            try:
+                from handlers.supabase_content import content_handler
+                result = await content_handler.get_user_content(user_id, limit=1)
+                has_content = result.get("success") and result.get("count", 0) > 0
+            except:
+                has_content = False
+            
+            if has_content:
+                response += "🎯 Quick Commands:\n"
+                response += "• /notes - Show your recent notes\n"
+                response += "• /tasks - Show your tasks and TODOs\n"
+                response += "• /links - Show your saved links\n"
+                response += "• /stats - See your content statistics\n\n"
+                response += "🔍 Search Commands:\n"
+                response += "• /search productivity - Find all productivity content\n"
+                response += "• /search notes python - Find Python-related notes\n"
+                response += "• /search tasks urgent - Find urgent tasks\n\n"
+                response += "💡 Try these examples:\n"
+                response += "• /search today - Content from today\n"
+                response += "• /search fastapi - FastAPI-related content\n"
+                response += "• /search meeting - Meeting-related items"
+            else:
+                response += "📱 You haven't saved any content yet!\n\n"
+                response += "Get started by saying:\n"
+                response += "• \"I learned that Supabase is awesome\"\n"
+                response += "• \"Task: Finish the project report\"\n"
+                response += "• \"https://fastapi.tiangolo.com great framework\"\n"
+                response += "• \"Remind me to call mom tomorrow\"\n\n"
+                response += "Once you save some content, use /search, /notes, /tasks, /links to find it!"
     else:
         # General help response
         response = f"❓ **I'm here to help!** (confidence: {confidence:.0%})\n\n"
