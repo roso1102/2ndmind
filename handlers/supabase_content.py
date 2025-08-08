@@ -58,8 +58,8 @@ class SupabaseContentHandler:
             # Insert into database
             result = self.supabase.table('user_content').insert(note_data).execute()
             
-            if result.data:
-                note_id = result.data[0]['id']
+            if result.get('data') and len(result['data']) > 0:
+                note_id = result['data'][0]['id']
                 logger.info(f"✅ Note saved for user {user_id}: {note_id}")
                 
                 return {
@@ -106,8 +106,8 @@ class SupabaseContentHandler:
             # Insert into database
             result = self.supabase.table('user_content').insert(link_data).execute()
             
-            if result.data:
-                link_id = result.data[0]['id']
+            if result.get('data') and len(result['data']) > 0:
+                link_id = result['data'][0]['id']
                 logger.info(f"✅ Link saved for user {user_id}: {link_id}")
                 
                 return {
@@ -118,7 +118,9 @@ class SupabaseContentHandler:
                     "message": f"Link '{title}' saved successfully!"
                 }
             else:
-                return {"success": False, "error": "Failed to save link to database"}
+                error_msg = result.get('error', 'Failed to save link to database')
+                logger.error(f"❌ Database error: {error_msg}")
+                return {"success": False, "error": error_msg}
                 
         except Exception as e:
             logger.error(f"❌ Failed to save link: {e}")
@@ -153,8 +155,8 @@ class SupabaseContentHandler:
             # Insert into database
             result = self.supabase.table('user_content').insert(task_data).execute()
             
-            if result.data:
-                task_id = result.data[0]['id']
+            if result.get('data') and len(result['data']) > 0:
+                task_id = result['data'][0]['id']
                 logger.info(f"✅ Task saved for user {user_id}: {task_id}")
                 
                 return {
@@ -198,8 +200,8 @@ class SupabaseContentHandler:
             # Insert into database
             result = self.supabase.table('user_content').insert(reminder_data).execute()
             
-            if result.data:
-                reminder_id = result.data[0]['id']
+            if result.get('data') and len(result['data']) > 0:
+                reminder_id = result['data'][0]['id']
                 logger.info(f"✅ Reminder saved for user {user_id}: {reminder_id}")
                 
                 return {
@@ -233,11 +235,11 @@ class SupabaseContentHandler:
             
             result = query.execute()
             
-            if result.data is not None:
+            if result.get('data') is not None:
                 return {
                     "success": True,
-                    "content": result.data,
-                    "count": len(result.data)
+                    "content": result.get('data'),
+                    "count": len(result.get('data'))
                 }
             else:
                 return {"success": False, "error": "Failed to fetch content"}
@@ -259,11 +261,11 @@ class SupabaseContentHandler:
             
             result = search_query.execute()
             
-            if result.data is not None:
+            if result.get('data') is not None:
                 return {
                     "success": True,
-                    "results": result.data,
-                    "count": len(result.data),
+                    "results": result.get('data'),
+                    "count": len(result.get('data')),
                     "query": query
                 }
             else:
@@ -285,8 +287,8 @@ class SupabaseContentHandler:
             
             return {
                 "success": True,
-                "results": result.data or [],
-                "count": len(result.data or []),
+                "results": result.get('data', []),
+                "count": len(result.get('data', [])),
                 "query": query
             }
         except Exception as e:
