@@ -55,28 +55,34 @@ class IntentClassifier:
         """Use Groq/Llama3 for intent classification."""
         
         prompt = f"""
-Classify this message into ONE of these intents with HIGH priority for URLs:
+Classify this message into ONE of these intents. Follow these STRICT rules:
 
-1. LINK - URLs, web addresses, "read later", links to save (HIGHEST PRIORITY if URL present)
-2. GREETING - Hello, hi, greetings, casual conversation starters  
-3. NOTE - Saving information, ideas, thoughts, facts to remember
-4. TASK - Creating todos, assignments, action items, things to do
-5. REMINDER - Setting time-based alerts, "remind me", scheduled notifications
-6. QUESTION - Asking for information, help, searching saved content ("what did I save about...")
-7. FILE - References to uploading, sharing, or processing files/documents
-8. OTHER - Everything else that doesn't fit above categories
+1. LINK - ONLY if message contains http:// or https:// URLs
+2. NOTE - Ideas, thoughts, facts to remember, "I have an idea", learning notes
+3. TASK - TODOs, "I need to", "remember to do", action items
+4. REMINDER - Time-based alerts, "remind me at", "meeting tomorrow"
+5. QUESTION - Asking for information, "what did I save", searching content
+6. GREETING - Hello, hi, greetings, casual conversation
+7. FILE - File uploads, document references
+8. OTHER - Everything else
 
-IMPORTANT RULES:
-- If message contains http:// or https://, classify as LINK even if it has other content
-- "I learned about https://..." = LINK (not NOTE)
-- "Check out https://..." = LINK (not NOTE)
-- URLs with context should be LINK, the context will be saved with the URL
-- Questions about searching content should be QUESTION
+CRITICAL CLASSIFICATION RULES:
+- "I have an idea about X" = NOTE (NOT LINK!)
+- "I learned about X" = NOTE (unless URL present)
+- "Remember this: X" = NOTE
+- URLs with context = LINK only
+- NO URL present = NEVER classify as LINK
+
+EXAMPLES:
+- "I have an idea about solar panels" → NOTE
+- "https://example.com solar panels" → LINK
+- "I need to call mom" → TASK
+- "What did I save today?" → QUESTION
 
 Message: "{message}"
 
 RESPOND WITH VALID JSON ONLY:
-{{"intent": "LINK", "confidence": 0.95, "reasoning": "Contains URL - should be saved as link with context"}}
+{{"intent": "NOTE", "confidence": 0.95, "reasoning": "Saving an idea or thought - no URL present"}}
 """
 
         response = self.groq_client.chat.completions.create(
@@ -122,12 +128,18 @@ RESPOND WITH VALID JSON ONLY:
         
         message_lower = message.lower()
         
-        # Link detection (URLs, read later patterns)
+        # Link detection (ONLY for actual URLs)
         import re
         url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
-        link_keywords = ['read later', 'save link', 'bookmark', 'check out', 'www.', '.com', '.org', '.net']
-        if re.search(url_pattern, message) or any(keyword in message_lower for keyword in link_keywords):
-            return {"intent": "LINK", "confidence": 0.9, "reasoning": "URL or link-related keywords detected"}
+        
+        # Only classify as LINK if actual URL is present
+        if re.search(url_pattern, message):
+            return {"intent": "LINK", "confidence": 0.9, "reasoning": "URL detected in message"}
+        
+        # Additional link patterns only if no URL found yet
+        link_keywords = ['read later', 'save link', 'bookmark this', 'www.', '.com/', '.org/', '.net/']
+        if any(keyword in message_lower for keyword in link_keywords):
+            return {"intent": "LINK", "confidence": 0.8, "reasoning": "Link-related keywords detected"}
         
         # Greeting keywords
         greeting_keywords = ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'greetings', 'howdy', 'sup', 'yo']
@@ -150,7 +162,7 @@ RESPOND WITH VALID JSON ONLY:
             return {"intent": "QUESTION", "confidence": 0.7, "reasoning": "Question or search keywords detected"}
         
         # Note keywords (saving information, ideas)
-        note_keywords = ['note', 'remember', 'save', 'keep', 'record', 'write down', 'important', 'idea', 'thought', 'learned']
+        note_keywords = ['note', 'remember', 'save', 'keep', 'record', 'write down', 'important', 'idea', 'thought', 'learned', 'i have an idea', 'thinking about', 'discovered']
         if any(keyword in message_lower for keyword in note_keywords):
             return {"intent": "NOTE", "confidence": 0.7, "reasoning": "Note/save keywords detected"}
         
