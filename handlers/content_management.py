@@ -22,20 +22,23 @@ class ContentManager:
     async def handle_delete_command(self, user_id: str, message: str) -> Dict:
         """Handle delete commands like 'delete task 5' or 'remove note about AI'."""
         try:
-            # Parse delete command patterns (support both numeric IDs and UUIDs)
+            from handlers.session_manager import session_manager
+            
+            # Parse delete command patterns (support both sequential numbers and UUIDs)
             delete_patterns = [
-                r'delete\s+(task|note|link|reminder)\s+([a-f0-9-]+)',  # delete task uuid
-                r'remove\s+(task|note|link|reminder)\s+([a-f0-9-]+)',  # remove note uuid
-                r'delete\s+([a-f0-9-]+)',  # delete uuid
-                r'remove\s+([a-f0-9-]+)',  # remove uuid
-                r'delete\s+(task|note|link|reminder)\s+(\d+)',  # delete task 5 (legacy)
-                r'remove\s+(task|note|link|reminder)\s+(\d+)',  # remove note 3 (legacy)
-                r'delete\s+(\d+)',  # delete 5 (legacy)
-                r'remove\s+(\d+)',  # remove 3 (legacy)
+                r'delete\s+(task|note|link|reminder)\s+(\d+)',  # delete task 5 (sequential)
+                r'remove\s+(task|note|link|reminder)\s+(\d+)',  # remove note 3 (sequential)
+                r'delete\s+(\d+)',  # delete 5 (sequential)
+                r'remove\s+(\d+)',  # remove 3 (sequential)
+                r'delete\s+(task|note|link|reminder)\s+([a-f0-9-]+)',  # delete task uuid (fallback)
+                r'remove\s+(task|note|link|reminder)\s+([a-f0-9-]+)',  # remove note uuid (fallback)
+                r'delete\s+([a-f0-9-]+)',  # delete uuid (fallback)
+                r'remove\s+([a-f0-9-]+)',  # remove uuid (fallback)
             ]
             
             content_type = None
             content_id = None
+            is_sequential = False
             
             for pattern in delete_patterns:
                 match = re.search(pattern, message.lower())
@@ -45,6 +48,9 @@ class ContentManager:
                         content_id = match.group(2)
                     else:
                         content_id = match.group(1)
+                    
+                    # Check if it's a sequential number
+                    is_sequential = content_id.isdigit()
                     break
             
             if not content_id:
@@ -53,8 +59,18 @@ class ContentManager:
                     "error": "Please specify what to delete. Examples:\n• delete task 5\n• remove note 3\n• delete 7"
                 }
             
+            # Convert sequential number to actual UUID if needed
+            actual_id = content_id
+            if is_sequential:
+                actual_id = session_manager.get_actual_id(user_id, int(content_id))
+                if not actual_id:
+                    return {
+                        "success": False,
+                        "error": f"Item #{content_id} not found. Please view your content first to get current numbers."
+                    }
+            
             # Get content details first
-            get_result = await self.content_handler.get_content_by_id(user_id, content_id)
+            get_result = await self.content_handler.get_content_by_id(user_id, actual_id)
             
             if not get_result.get('success'):
                 return {
@@ -89,28 +105,32 @@ class ContentManager:
     async def handle_complete_command(self, user_id: str, message: str) -> Dict:
         """Handle task completion commands like 'complete task 5' or 'done 3'."""
         try:
-            # Parse completion command patterns (support both numeric IDs and UUIDs)
+            from handlers.session_manager import session_manager
+            
+            # Parse completion command patterns (support both sequential numbers and UUIDs)
             complete_patterns = [
-                r'(complete|done|finish)\s+task\s+([a-f0-9-]+)',  # complete task uuid
-                r'(complete|done|finish)\s+([a-f0-9-]+)',  # done uuid
-                r'mark\s+([a-f0-9-]+)\s+(complete|done)',  # mark uuid complete
-                r'task\s+([a-f0-9-]+)\s+(complete|done)',  # task uuid done
-                r'(complete|done|finish)\s+task\s+(\d+)',  # complete task 5 (legacy)
-                r'(complete|done|finish)\s+(\d+)',  # done 3 (legacy)
-                r'mark\s+(\d+)\s+(complete|done)',  # mark 5 complete (legacy)
-                r'task\s+(\d+)\s+(complete|done)',  # task 5 done (legacy)
+                r'(complete|done|finish)\s+task\s+(\d+)',  # complete task 5 (sequential)
+                r'(complete|done|finish)\s+(\d+)',  # done 3 (sequential)
+                r'mark\s+(\d+)\s+(complete|done)',  # mark 5 complete (sequential)
+                r'task\s+(\d+)\s+(complete|done)',  # task 5 done (sequential)
+                r'(complete|done|finish)\s+task\s+([a-f0-9-]+)',  # complete task uuid (fallback)
+                r'(complete|done|finish)\s+([a-f0-9-]+)',  # done uuid (fallback)
+                r'mark\s+([a-f0-9-]+)\s+(complete|done)',  # mark uuid complete (fallback)
+                r'task\s+([a-f0-9-]+)\s+(complete|done)',  # task uuid done (fallback)
             ]
             
             task_id = None
+            is_sequential = False
             
             for pattern in complete_patterns:
                 match = re.search(pattern, message.lower())
                 if match:
                     groups = match.groups()
-                    # Find the ID group (UUID or digit)
+                    # Find the ID group (sequential number or UUID)
                     for group in groups:
                         if group and (group.isdigit() or re.match(r'^[a-f0-9-]+$', group)):
                             task_id = group
+                            is_sequential = group.isdigit()
                             break
                     if task_id:
                         break
@@ -121,8 +141,18 @@ class ContentManager:
                     "error": "Please specify which task to complete. Examples:\n• complete task 5\n• done 3\n• mark 7 complete"
                 }
             
+            # Convert sequential number to actual UUID if needed
+            actual_id = task_id
+            if is_sequential:
+                actual_id = session_manager.get_actual_id(user_id, int(task_id))
+                if not actual_id:
+                    return {
+                        "success": False,
+                        "error": f"Task #{task_id} not found. Please view your tasks first to get current numbers."
+                    }
+            
             # Get task details first
-            get_result = await self.content_handler.get_content_by_id(user_id, task_id)
+            get_result = await self.content_handler.get_content_by_id(user_id, actual_id)
             
             if not get_result.get('success'):
                 return {
