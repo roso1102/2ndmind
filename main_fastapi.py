@@ -220,31 +220,34 @@ Try saying things like:
                             # Create session mapping for privacy-friendly display
                             mapping = session_manager.create_content_mapping(user_id, result["content"])
                             log(f"📊 Created session mapping: {len(mapping)} items")
-                            
+
                             response = f"📋 Your Recent Tasks ({result['count']} shown)\n\n"
-                            
+
                             for i, task in enumerate(result["content"], 1):
                                 title = task.get('title', 'Untitled')
                                 content = task.get('content', '')
                                 completed = task.get('completed', False)
                                 due_date = task.get('due_date')
                                 priority = task.get('priority', 'medium')
-                                
+                                uuid = task.get('id', '')
+
                                 status_icon = "✅" if completed else "⏳"
                                 priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(priority, "🟡")
-                                
+
                                 response += f"{i}. {status_icon} {title} {priority_icon}\n"
-                                
+                                response += f"   🆔 UUID: `{uuid}`\n"
+
                                 # Only show content if it's different from title
                                 if content and content.strip() != title.strip():
                                     response += f"   📄 {content[:80]}{'...' if len(content) > 80 else ''}\n"
-                                
+
                                 if due_date:
                                     response += f"   📅 Due: {due_date[:10]}\n"
-                                
+
                                 response += "\n"
-                            
-                            response += "💡 Use \"delete 3\" or \"/delete 3\" to remove tasks, or \"complete 2\" to mark as done!"
+
+                            response += "💡 Use \"delete 3\" or \"/delete 3\" to remove tasks, or \"complete 2\" to mark as done!\n"
+                            response += "🆔 Advanced: You can also use /delete <UUID> if needed."
                         else:
                             response = "📋 No Tasks Found\n\n"
                             response += "You haven't saved any tasks yet! Try saying:\n"
@@ -280,7 +283,11 @@ Try saying things like:
                     if result.get('success'):
                         await send_message(chat_id, result['message'])
                     else:
-                        await send_message(chat_id, f"❌ {result.get('error', 'Delete failed')}")
+                        error_msg = result.get('error', 'Delete failed')
+                        # If error is about mapping/session, add a user-friendly reminder
+                        if "not found" in error_msg.lower() and "view your content first" in error_msg.lower():
+                            error_msg += "\n💡 Tip: Please run /tasks before deleting, so I can map the number to the correct task."
+                        await send_message(chat_id, f"❌ {error_msg}")
                     return {"ok": True}
                 
                 elif cmd in ["/complete", "/done"]:
