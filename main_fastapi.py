@@ -139,6 +139,7 @@ async def telegram_webhook(request: Request):
 • /help - Show this help
 • /status - Bot status
 • /health - Health check
+• /tasks - View your tasks
 
 *Content Management:*
 • /delete 5 - Delete content by ID
@@ -325,7 +326,7 @@ Try saying things like:
                 else:
                     # Unknown command
                     log(f"❌ Unknown command detected: '{cmd}'")
-                    log(f"❌ Available commands: /start, /help, /register, /status, /health, /delete, /remove, /complete, /done, /edit, /update")
+                    log(f"❌ Available commands: /start, /help, /register, /status, /health, /tasks, /delete, /remove, /complete, /done, /edit, /update")
                     await send_message(chat_id, f"❓ Unknown command: {cmd}\n\nUse /help to see available commands.")
                     return {"ok": True}
             
@@ -384,6 +385,16 @@ Try saying things like:
 @app.on_event("startup")
 async def startup_event():
     """Set up webhook on startup"""
+    
+    # Check critical environment variables
+    encryption_key = os.getenv('ENCRYPTION_MASTER_KEY')
+    if not encryption_key:
+        logger.error("❌ CRITICAL: ENCRYPTION_MASTER_KEY environment variable is missing!")
+        logger.error("🔧 Please set it in your Render environment variables")
+        logger.error("🔧 Use the key from your .env file: bVhFRmdYdlkzNXd0VzhERHIxVk9tZjZpUVN1VTduRlh4RDZnbzg0LTBXND0=")
+    else:
+        logger.info("✅ ENCRYPTION_MASTER_KEY found in environment")
+    
     if TELEGRAM_BOT_TOKEN:
         webhook_url = f"{WEBHOOK_URL}/webhook"
         try:

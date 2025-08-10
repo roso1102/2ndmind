@@ -29,16 +29,24 @@ class UserEncryption:
         
         if master_key_b64:
             try:
-                return base64.urlsafe_b64decode(master_key_b64)
+                decoded_key = base64.urlsafe_b64decode(master_key_b64)
+                logger.info("✅ Using existing master encryption key from environment")
+                return decoded_key
             except Exception as e:
-                logger.error(f"Invalid master key in environment: {e}")
+                logger.error(f"❌ Invalid master key in environment: {e}")
+                logger.error("🔧 Please check your ENCRYPTION_MASTER_KEY environment variable")
                 
-        # Generate new master key
+        # Only generate new key if absolutely necessary
+        logger.error("❌ CRITICAL: No valid ENCRYPTION_MASTER_KEY found in environment!")
+        logger.error("🚨 This will break encryption for existing users!")
+        
+        # Generate new master key as last resort
         master_key = Fernet.generate_key()
         master_key_b64 = base64.urlsafe_b64encode(master_key).decode()
         
         logger.warning("🔑 Generated new master encryption key")
-        logger.warning(f"🔑 Add this to your .env file: ENCRYPTION_MASTER_KEY={master_key_b64}")
+        logger.warning(f"🔑 Add this to your Render environment variables: ENCRYPTION_MASTER_KEY={master_key_b64}")
+        logger.warning("🔑 Also add to your .env file: ENCRYPTION_MASTER_KEY={master_key_b64}")
         
         return master_key
     
