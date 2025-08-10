@@ -121,6 +121,8 @@ async def telegram_webhook(request: Request):
                 log(f"🎯 FULL TEXT: '{text}'")
                 log(f"🎯 ENTERING COMMAND PROCESSING BLOCK")
                 
+                log(f"🔍 Checking commands for: '{cmd}'")
+                
                 if cmd == "/start":
                     log(f"✅ Processing /start command")
                     await send_message(chat_id, "👋 Welcome to MySecondMind!\n\nI'm your AI-powered personal assistant. I can help you with:\n• Task management\n• Information storage\n• Smart responses\n\nUse /register to connect your Notion workspace and get started!")
@@ -201,12 +203,13 @@ Try saying things like:
                     return {"ok": True}
                     
                 elif cmd == "/health":
+                    log(f"✅ Processing /health command")
                     await send_message(chat_id, "🟢 Bot is healthy and running!")
                     return {"ok": True}
                 
                 # Content Management Commands
                 elif cmd in ["/delete", "/remove"]:
-                    log(f"✅ Processing {cmd} command")
+                    log(f"✅ MATCHED DELETE COMMAND: Processing {cmd}")
                     # Handle delete commands like "/delete 5" or "/delete task 3"
                     parts = text.split()[1:] if len(text.split()) > 1 else []
                     if not parts:
@@ -228,6 +231,8 @@ Try saying things like:
                     return {"ok": True}
                 
                 elif cmd in ["/complete", "/done"]:
+                    log(f"✅ Processing {cmd} command")
+                    # Handle completion commands like "/complete 5" or "/done task 3"
                     # Handle completion commands like "/complete 5" or "/done task 3"
                     parts = text.split()[1:] if len(text.split()) > 1 else []
                     if not parts:
