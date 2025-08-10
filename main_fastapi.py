@@ -388,6 +388,7 @@ async def startup_event():
     
     # Check critical environment variables
     encryption_key = os.getenv('ENCRYPTION_MASTER_KEY')
+    logger.info(f"🔍 Raw ENCRYPTION_MASTER_KEY from environment: {repr(encryption_key)}")
     if not encryption_key:
         logger.error("❌ CRITICAL: ENCRYPTION_MASTER_KEY environment variable is missing!")
         logger.error("🔧 Please set it in your Render environment variables")
