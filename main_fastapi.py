@@ -207,6 +207,58 @@ Try saying things like:
                     await send_message(chat_id, "🟢 Bot is healthy and running!")
                     return {"ok": True}
                 
+                elif cmd == "/tasks":
+                    log(f"✅ Processing /tasks command")
+                    try:
+                        from handlers.supabase_content import content_handler
+                        from handlers.session_manager import session_manager
+                        
+                        result = await content_handler.get_user_content(user_id, content_type='task', limit=10)
+                        
+                        if result["success"] and result["count"] > 0:
+                            # Create session mapping for privacy-friendly display
+                            mapping = session_manager.create_content_mapping(user_id, result["content"])
+                            log(f"📊 Created session mapping: {len(mapping)} items")
+                            
+                            response = f"📋 Your Recent Tasks ({result['count']} shown)\n\n"
+                            
+                            for i, task in enumerate(result["content"], 1):
+                                title = task.get('title', 'Untitled')
+                                content = task.get('content', '')
+                                completed = task.get('completed', False)
+                                due_date = task.get('due_date')
+                                priority = task.get('priority', 'medium')
+                                
+                                status_icon = "✅" if completed else "⏳"
+                                priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(priority, "🟡")
+                                
+                                response += f"{i}. {status_icon} {title} {priority_icon}\n"
+                                
+                                # Only show content if it's different from title
+                                if content and content.strip() != title.strip():
+                                    response += f"   📄 {content[:80]}{'...' if len(content) > 80 else ''}\n"
+                                
+                                if due_date:
+                                    response += f"   📅 Due: {due_date[:10]}\n"
+                                
+                                response += "\n"
+                            
+                            response += "💡 Use \"delete 3\" or \"/delete 3\" to remove tasks, or \"complete 2\" to mark as done!"
+                        else:
+                            response = "📋 No Tasks Found\n\n"
+                            response += "You haven't saved any tasks yet! Try saying:\n"
+                            response += "• \"I need to finish the project report by Friday\"\n"
+                            response += "• \"Task: Review team performance metrics\"\n"
+                            response += "• \"Must complete code review before noon\""
+                        
+                        await send_message(chat_id, response)
+                        return {"ok": True}
+                        
+                    except Exception as e:
+                        log(f"❌ Error in /tasks: {e}", "ERROR")
+                        await send_message(chat_id, "❌ Error retrieving tasks. Please try again later.")
+                        return {"ok": True}
+                
                 # Content Management Commands
                 elif cmd in ["/delete", "/remove"]:
                     log(f"✅ MATCHED DELETE COMMAND: Processing {cmd}")

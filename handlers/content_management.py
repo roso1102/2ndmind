@@ -88,7 +88,7 @@ class ContentManager:
                 }
             
             # Delete the content
-            delete_result = await self.content_handler.delete_content(user_id, content_id)
+            delete_result = await self.content_handler.delete_content(user_id, actual_id)
             
             if delete_result.get('success'):
                 return {
