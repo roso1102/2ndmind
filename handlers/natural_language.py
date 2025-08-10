@@ -390,6 +390,7 @@ async def handle_question_intent(update, context, message: str, classification: 
                     
                     for item in results:
                         content_type = item.get('content_type', 'unknown')
+                        content_id = item.get('id', 'unknown')
                         title = item.get('title', 'Untitled')
                         snippet = item.get('snippet', item.get('content', ''))
                         created_at = item.get('created_at', '')
@@ -414,19 +415,19 @@ async def handle_question_intent(update, context, message: str, classification: 
                         
                         # Format based on type with safer formatting
                         if content_type == 'note':
-                            response += f"📝 Note: {title}\n"
+                            response += f"📝 Note [{content_id}]: {title}\n"
                             response += f"   {snippet}\n"
                         elif content_type == 'link':
                             url = clean_text(item.get('url', ''))
-                            response += f"🔗 Link: {title}\n"
+                            response += f"🔗 Link [{content_id}]: {title}\n"
                             response += f"   {url}\n"
                         elif content_type == 'task':
                             completed = item.get('completed', False)
                             status_emoji = '✅' if completed else '📋'
-                            response += f"{status_emoji} Task: {title}\n"
+                            response += f"{status_emoji} Task [{content_id}]: {title}\n"
                             response += f"   {snippet}\n"
                         elif content_type == 'reminder':
-                            response += f"⏰ Reminder: {title}\n"
+                            response += f"⏰ Reminder [{content_id}]: {title}\n"
                             response += f"   {snippet}\n"
                         else:
                             response += f"📄 {title}\n"

@@ -22,6 +22,7 @@ async def view_notes_command(update, context) -> None:
             response = f"📝 Your Recent Notes ({result['count']} shown)\n\n"
             
             for i, note in enumerate(result["content"], 1):
+                note_id = note.get('id', 'unknown')
                 title = note.get('title', 'Untitled')
                 content = note.get('content', '')
                 created_at = note.get('created_at', '')
@@ -29,11 +30,11 @@ async def view_notes_command(update, context) -> None:
                 # Truncate content for preview
                 content_preview = content[:100] + "..." if len(content) > 100 else content
                 
-                response += f"{i}. {title}\n"
+                response += f"[{note_id}] {title}\n"
                 response += f"📄 {content_preview}\n"
                 response += f"📅 {created_at[:10] if created_at else 'Unknown'}\n\n"
             
-            response += "💡 Use `/search <term>` to find specific notes!"
+            response += "💡 Use `/delete [ID]` to remove notes (e.g., `/delete 123`) or `/search <term>` to find specific notes!"
         else:
             response = "📝 No Notes Found\n\n"
             response += "You haven't saved any notes yet! Try saying:\n"
@@ -61,6 +62,7 @@ async def view_tasks_command(update, context) -> None:
             response = f"📋 Your Recent Tasks ({result['count']} shown)\n\n"
             
             for i, task in enumerate(result["content"], 1):
+                task_id = task.get('id', 'unknown')
                 title = task.get('title', 'Untitled')
                 content = task.get('content', '')
                 completed = task.get('completed', False)
@@ -70,7 +72,7 @@ async def view_tasks_command(update, context) -> None:
                 status_icon = "✅" if completed else "⏳"
                 priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(priority, "🟡")
                 
-                response += f"{i}. {status_icon} {title} {priority_icon}\n"
+                response += f"[{task_id}] {status_icon} {title} {priority_icon}\n"
                 response += f"📄 {content[:80]}{'...' if len(content) > 80 else ''}\n"
                 
                 if due_date:
@@ -78,7 +80,7 @@ async def view_tasks_command(update, context) -> None:
                 
                 response += "\n"
             
-            response += "💡 Use `/search tasks` to find specific tasks!"
+            response += "💡 Use `/delete [ID]` to remove tasks (e.g., `/delete 123`) or `/search tasks` to find specific tasks!"
         else:
             response = "📋 No Tasks Found\n\n"
             response += "You haven't saved any tasks yet! Try saying:\n"
@@ -106,12 +108,13 @@ async def view_links_command(update, context) -> None:
             response = f"🔗 Your Recent Links ({result['count']} shown)\n\n"
             
             for i, link in enumerate(result["content"], 1):
+                link_id = link.get('id', 'unknown')
                 title = link.get('title', 'Untitled')
                 url = link.get('url', '')
                 content = link.get('content', '')
                 created_at = link.get('created_at', '')
                 
-                response += f"{i}. {title}\n"
+                response += f"[{link_id}] {title}\n"
                 response += f"🔗 {url}\n"
                 
                 # Extract context if available
@@ -121,7 +124,7 @@ async def view_links_command(update, context) -> None:
                 
                 response += f"📅 {created_at[:10] if created_at else 'Unknown'}\n\n"
             
-            response += "💡 Use /search links to find specific links!"
+            response += "💡 Use `/delete [ID]` to remove links (e.g., `/delete 123`) or `/search links` to find specific links!"
         else:
             response = "🔗 No Links Found\n\n"
             response += "You haven't saved any links yet! Try saying:\n"
