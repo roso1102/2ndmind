@@ -81,7 +81,10 @@ async def view_tasks_command(update, context) -> None:
                 priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(priority, "🟡")
                 
                 response += f"{i}. {status_icon} {title} {priority_icon}\n"
-                response += f"   📄 {content[:80]}{'...' if len(content) > 80 else ''}\n"
+                
+                # Only show content if it's different from title
+                if content and content.strip() != title.strip():
+                    response += f"   📄 {content[:80]}{'...' if len(content) > 80 else ''}\n"
                 
                 if due_date:
                     response += f"   📅 Due: {due_date[:10]}\n"
