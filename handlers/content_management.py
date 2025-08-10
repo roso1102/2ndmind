@@ -22,12 +22,16 @@ class ContentManager:
     async def handle_delete_command(self, user_id: str, message: str) -> Dict:
         """Handle delete commands like 'delete task 5' or 'remove note about AI'."""
         try:
-            # Parse delete command patterns
+            # Parse delete command patterns (support both numeric IDs and UUIDs)
             delete_patterns = [
-                r'delete\s+(task|note|link|reminder)\s+(\d+)',  # delete task 5
-                r'remove\s+(task|note|link|reminder)\s+(\d+)',  # remove note 3
-                r'delete\s+(\d+)',  # delete 5
-                r'remove\s+(\d+)',  # remove 3
+                r'delete\s+(task|note|link|reminder)\s+([a-f0-9-]+)',  # delete task uuid
+                r'remove\s+(task|note|link|reminder)\s+([a-f0-9-]+)',  # remove note uuid
+                r'delete\s+([a-f0-9-]+)',  # delete uuid
+                r'remove\s+([a-f0-9-]+)',  # remove uuid
+                r'delete\s+(task|note|link|reminder)\s+(\d+)',  # delete task 5 (legacy)
+                r'remove\s+(task|note|link|reminder)\s+(\d+)',  # remove note 3 (legacy)
+                r'delete\s+(\d+)',  # delete 5 (legacy)
+                r'remove\s+(\d+)',  # remove 3 (legacy)
             ]
             
             content_type = None
@@ -85,12 +89,16 @@ class ContentManager:
     async def handle_complete_command(self, user_id: str, message: str) -> Dict:
         """Handle task completion commands like 'complete task 5' or 'done 3'."""
         try:
-            # Parse completion command patterns
+            # Parse completion command patterns (support both numeric IDs and UUIDs)
             complete_patterns = [
-                r'(complete|done|finish)\s+task\s+(\d+)',  # complete task 5
-                r'(complete|done|finish)\s+(\d+)',  # done 3
-                r'mark\s+(\d+)\s+(complete|done)',  # mark 5 complete
-                r'task\s+(\d+)\s+(complete|done)',  # task 5 done
+                r'(complete|done|finish)\s+task\s+([a-f0-9-]+)',  # complete task uuid
+                r'(complete|done|finish)\s+([a-f0-9-]+)',  # done uuid
+                r'mark\s+([a-f0-9-]+)\s+(complete|done)',  # mark uuid complete
+                r'task\s+([a-f0-9-]+)\s+(complete|done)',  # task uuid done
+                r'(complete|done|finish)\s+task\s+(\d+)',  # complete task 5 (legacy)
+                r'(complete|done|finish)\s+(\d+)',  # done 3 (legacy)
+                r'mark\s+(\d+)\s+(complete|done)',  # mark 5 complete (legacy)
+                r'task\s+(\d+)\s+(complete|done)',  # task 5 done (legacy)
             ]
             
             task_id = None
@@ -99,9 +107,9 @@ class ContentManager:
                 match = re.search(pattern, message.lower())
                 if match:
                     groups = match.groups()
-                    # Find the digit group
+                    # Find the ID group (UUID or digit)
                     for group in groups:
-                        if group.isdigit():
+                        if group and (group.isdigit() or re.match(r'^[a-f0-9-]+$', group)):
                             task_id = group
                             break
                     if task_id:
@@ -156,12 +164,16 @@ class ContentManager:
     async def handle_edit_command(self, user_id: str, message: str) -> Dict:
         """Handle edit commands like 'edit note 5 new content'."""
         try:
-            # Parse edit command patterns
+            # Parse edit command patterns (support both numeric IDs and UUIDs)
             edit_patterns = [
-                r'edit\s+(task|note|link|reminder)\s+(\d+)\s+(.+)',  # edit note 5 new content
-                r'update\s+(task|note|link|reminder)\s+(\d+)\s+(.+)',  # update task 3 new title
-                r'edit\s+(\d+)\s+(.+)',  # edit 5 new content
-                r'update\s+(\d+)\s+(.+)',  # update 3 new content
+                r'edit\s+(task|note|link|reminder)\s+([a-f0-9-]+)\s+(.+)',  # edit note uuid new content
+                r'update\s+(task|note|link|reminder)\s+([a-f0-9-]+)\s+(.+)',  # update task uuid new title
+                r'edit\s+([a-f0-9-]+)\s+(.+)',  # edit uuid new content
+                r'update\s+([a-f0-9-]+)\s+(.+)',  # update uuid new content
+                r'edit\s+(task|note|link|reminder)\s+(\d+)\s+(.+)',  # edit note 5 new content (legacy)
+                r'update\s+(task|note|link|reminder)\s+(\d+)\s+(.+)',  # update task 3 new title (legacy)
+                r'edit\s+(\d+)\s+(.+)',  # edit 5 new content (legacy)
+                r'update\s+(\d+)\s+(.+)',  # update 3 new content (legacy)
             ]
             
             content_type = None
