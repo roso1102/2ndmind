@@ -117,14 +117,17 @@ async def telegram_webhook(request: Request):
             # Process commands
             if text.startswith("/"):
                 cmd = text.split()[0].lower()
-                log(f"🎯 COMMAND DETECTED: {cmd}")
+                log(f"🎯 COMMAND DETECTED: '{cmd}'")
+                log(f"🎯 FULL TEXT: '{text}'")
                 log(f"🎯 ENTERING COMMAND PROCESSING BLOCK")
                 
                 if cmd == "/start":
+                    log(f"✅ Processing /start command")
                     await send_message(chat_id, "👋 Welcome to MySecondMind!\n\nI'm your AI-powered personal assistant. I can help you with:\n• Task management\n• Information storage\n• Smart responses\n\nUse /register to connect your Notion workspace and get started!")
                     return {"ok": True}
                     
                 elif cmd == "/help":
+                    log(f"✅ Processing /help command")
                     help_text = """
 🤖 *MySecondMind Help*
 
@@ -203,6 +206,7 @@ Try saying things like:
                 
                 # Content Management Commands
                 elif cmd in ["/delete", "/remove"]:
+                    log(f"✅ Processing {cmd} command")
                     # Handle delete commands like "/delete 5" or "/delete task 3"
                     parts = text.split()[1:] if len(text.split()) > 1 else []
                     if not parts:
@@ -211,6 +215,7 @@ Try saying things like:
                     
                     # Convert to natural language format
                     delete_message = f"delete {' '.join(parts)}"
+                    log(f"🔄 Converted to: '{delete_message}'")
                     
                     # Import content manager
                     from handlers.content_management import content_manager
@@ -262,6 +267,8 @@ Try saying things like:
                 
                 else:
                     # Unknown command
+                    log(f"❌ Unknown command detected: '{cmd}'")
+                    log(f"❌ Available commands: /start, /help, /register, /status, /health, /delete, /remove, /complete, /done, /edit, /update")
                     await send_message(chat_id, f"❓ Unknown command: {cmd}\n\nUse /help to see available commands.")
                     return {"ok": True}
             
