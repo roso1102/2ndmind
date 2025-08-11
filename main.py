@@ -51,7 +51,14 @@ log("🚀 Initializing Advanced AI Features...")
 try:
     from core.semantic_search import get_semantic_engine
     semantic_engine = get_semantic_engine()
-    log("✅ Semantic search engine initialized")
+    log("✅ Full semantic search engine initialized")
+except ImportError as e:
+    try:
+        from core.lightweight_semantic import get_lightweight_engine
+        semantic_engine = get_lightweight_engine()
+        log("✅ Lightweight semantic search initialized (memory optimized)")
+    except Exception as e2:
+        log(f"⚠️ Semantic search initialization failed: {e2}", "WARNING")
 except Exception as e:
     log(f"⚠️ Semantic search initialization failed: {e}", "WARNING")
 

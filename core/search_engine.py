@@ -254,10 +254,20 @@ class SearchEngine:
         return snippet.strip()
     
     async def _semantic_search(self, user_id: str, query: str, limit: int) -> Dict:
-        """Perform semantic search using embeddings."""
+        """Perform semantic search using embeddings or lightweight fallback."""
         try:
+            # Try full semantic search first
             from core.semantic_search import semantic_search
             return await semantic_search(user_id, query, limit)
+        except ImportError:
+            # Fall back to lightweight semantic search
+            try:
+                from core.lightweight_semantic import lightweight_semantic_search
+                logger.info("🔄 Using lightweight semantic search (heavy dependencies not available)")
+                return await lightweight_semantic_search(user_id, query, limit)
+            except Exception as e2:
+                logger.debug(f"Lightweight semantic search failed: {e2}")
+                return {"success": False, "results": []}
         except Exception as e:
             logger.debug(f"Semantic search not available: {e}")
             return {"success": False, "results": []}
