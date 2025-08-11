@@ -177,7 +177,7 @@ RESPOND WITH VALID JSON ONLY:
         
         # Link detection (ONLY for actual URLs)
         import re
-        url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+        url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
         
         # Only classify as LINK if actual URL is present
         if re.search(url_pattern, message):
@@ -222,17 +222,6 @@ RESPOND WITH VALID JSON ONLY:
 
 # Global classifier instance
 classifier = IntentClassifier()
-
-async def get_user_storage_preference(user_id: str) -> str:
-    """Get user's storage preference (notion or obsidian)."""
-    from models.user_management import user_manager
-    
-    user = user_manager.get_user(user_id)
-    if user and user.get('storage_preference'):
-        return user['storage_preference']
-    
-    # Default to notion for backward compatibility
-    return "notion"
 
 async def process_natural_message(update, context=None) -> None:
     """Process natural language messages with AI intent classification."""
@@ -584,7 +573,7 @@ async def handle_link_intent(update, context, message: str, classification: Dict
     
     # Extract URL if present
     import re
-    url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+    url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     urls = re.findall(url_pattern, message)
     
     if urls:

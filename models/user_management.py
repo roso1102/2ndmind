@@ -3,7 +3,7 @@
 👤 User Management System for MySecondMind
 
 Handles user registration, authentication, and secure storage of user data
-including encrypted Notion tokens and user preferences using Supabase.
+using Supabase.
 """
 
 import os
@@ -104,7 +104,7 @@ class UserManager:
             return False
     
     def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
-        """Get user data by user ID in format expected by notion_client."""
+        """Get user data by user ID."""
         try:
             result = self.supabase.table('users').select('*').eq('user_id', user_id).eq('is_active', True).execute()
             

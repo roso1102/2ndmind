@@ -6,6 +6,7 @@ Handles /start, /help, and /status commands.
 
 from telegram import Update
 from telegram.ext import ContextTypes
+import os
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /start command."""
@@ -20,7 +21,7 @@ I'm your personal AI assistant that acts as your "second brain" 🤖
 **What I can do:**
 • 💭 Store your thoughts and ideas
 • 📝 Manage tasks and reminders  
-• 🔗 Summarize links and articles
+• 🔗 Save and search links and articles
 • 📄 Process PDFs and screenshots
 • 🌤️ Daily planning with weather
 • 🔄 Resurface forgotten memories
@@ -69,7 +70,7 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 **Features:**
 • 🧠 AI-powered intent understanding
 • 🔐 Encrypted, secure database storage
-• � Full-text search across all content
+• 🔎 Full-text search across all content
 • 🔄 Multi-user support
 • 📱 Works entirely on Telegram
 
@@ -81,48 +82,33 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /status command."""
     
-    # Basic health check
     try:
-        from core.notion_router import get_notion_client
         user_id = update.effective_user.id
-        
-        # Try to get user's Notion client
-        try:
-            notion, user_data = get_notion_client(user_id)
-            registration_status = "✅ Registered"
-            notion_status = "✅ Connected"
-        except:
-            registration_status = "❌ Not registered"
-            notion_status = "❌ Not connected"
-        
-        # Check APIs
-        import os
         telegram_status = "✅ Connected" if os.getenv('TELEGRAM_TOKEN') else "❌ Missing"
-        groq_status = "✅ Connected" if os.getenv('GROQ_API_KEY') else "❌ Missing"
+        groq_status = "✅ Connected" if os.getenv('GROQ_API_KEY') else "⚠️ Optional"
         weather_status = "✅ Connected" if os.getenv('WEATHER_API_KEY') else "⚠️ Optional"
-        
+        supabase_status = "✅ Configured" if (os.getenv('SUPABASE_URL') and os.getenv('SUPABASE_ANON_KEY')) else "❌ Missing"
+        encryption_status = "✅ Active" if os.getenv('ENCRYPTION_MASTER_KEY') else "⚠️ Missing"
+
         status_message = f"""
 🔍 **MySecondMind Status**
 
 **Your Registration:**
-• Registration: {registration_status}
-• Notion: {notion_status}
+• Use `/register` to activate your account
 
 **Bot Health:**
 • Telegram API: {telegram_status}
 • Groq AI: {groq_status}  
 • Weather API: {weather_status}
-• Encryption: ✅ Active
+• Supabase: {supabase_status}
+• Encryption: {encryption_status}
 
-**Usage:**
-• Total users: {len(get_all_user_ids()) if 'get_all_user_ids' in locals() else '?'}
+**Info:**
 • Your user ID: `{user_id}`
 
-{("⚠️ **Action needed:** Use `/register` to connect your Notion workspace" if registration_status == "❌ Not registered" else "🎉 **All systems operational!**")}
+🎉 **All systems ready!**
 """
-        
         await update.message.reply_text(status_message, parse_mode='Markdown')
-        
     except Exception as e:
         await update.message.reply_text(
             f"❌ **Status Check Failed**\n\n"

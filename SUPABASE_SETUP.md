@@ -37,7 +37,7 @@ This guide will help you set up Supabase as the database backend for MySecondMin
 
 ### 4. Configure Environment Variables
 
-1. Copy `.env.example` to `.env`
+1. Create a `.env` file
 2. Add your Supabase credentials:
    ```bash
    SUPABASE_URL=https://your-project-id.supabase.co
@@ -52,12 +52,12 @@ Run your bot and try the `/register` command to ensure Supabase connectivity is 
 
 ### Row Level Security (RLS)
 
-The schema includes basic RLS policies. For production, you may want to implement more restrictive policies based on your authentication strategy.
+The schema includes a basic RLS policy. For production, you should implement stricter policies matched to your auth strategy.
 
 ### Environment Variables
 
-- **SUPABASE_URL**: Your project URL (safe to expose in frontend)
-- **SUPABASE_ANON_KEY**: Public anon key (safe to expose in frontend)
+- **SUPABASE_URL**: Your project URL (safe to expose to clients)
+- **SUPABASE_ANON_KEY**: Public anon key (safe to expose to clients)
 
 ⚠️ **Never expose your service_role key in client-side code!**
 
@@ -66,10 +66,8 @@ The schema includes basic RLS policies. For production, you may want to implemen
 The `users` table includes:
 - `user_id` (TEXT, PRIMARY KEY): Telegram user ID
 - `telegram_username` (TEXT): Telegram username
-- `encrypted_notion_token` (TEXT): Fernet-encrypted Notion API token
-- `db_notes` (TEXT): Notion database ID for notes
-- `db_links` (TEXT): Notion database ID for links  
-- `db_reminders` (TEXT): Notion database ID for reminders
+- `first_name` (TEXT): Optional
+- `last_name` (TEXT): Optional
 - `created_at` (TIMESTAMP): Registration timestamp
 - `last_active` (TIMESTAMP): Last activity timestamp
 - `is_active` (BOOLEAN): Soft delete flag
@@ -96,12 +94,9 @@ You can view and manage data through the Supabase dashboard:
 3. **Scaling**: Supabase handles scaling automatically
 4. **Security**: Review and tighten RLS policies for production
 
-## 📈 Migration from SQLite
+## 📈 Migration Notes
 
-If you were previously using SQLite, you can migrate data by:
-1. Exporting data from your SQLite database
-2. Importing it into Supabase using the dashboard or SQL commands
-3. Ensuring all user_id values match between systems
+If you were previously using another storage, export your data and import it into Supabase via the dashboard or SQL.
 
 ---
 

@@ -56,7 +56,7 @@ async def check_user_registration(mock_update, chat_id):
             "🔑 **Welcome to MySecondMind!**\n\n"
             "Please register first by typing:\n"
             "`/register`\n\n"
-            "This will set up your personal Second Brain! 🧠")
+            "This will activate your account and set up your personal Second Brain! 🧠")
         return False
 
 async def send_message(chat_id, text, parse_mode=None):
@@ -194,6 +194,8 @@ async def telegram_webhook_alt(request: Request):
     log("🔍 /telegram endpoint hit via POST method")
     return await handle_telegram_webhook(request)
 
+aSYNC_TOKEN = object()  # prevent accidental typos in edits
+
 async def handle_telegram_webhook(request: Request):
     """Actual webhook processing logic"""
     chat_id = None
@@ -230,7 +232,7 @@ async def handle_telegram_webhook(request: Request):
                 log(f"🎯 ENTERING COMMAND PROCESSING BLOCK")
                 
                 if cmd == "/start":
-                    await send_message(chat_id, "👋 Welcome to MySecondMind!\n\nI'm your AI-powered personal assistant. I can help you with:\n• Task management\n• Information storage\n• Smart responses\n\nUse /register to connect your Notion workspace and get started!")
+                    await send_message(chat_id, "👋 Welcome to MySecondMind!\n\nI'm your AI-powered personal assistant. I can help you with:\n• Task management\n• Information storage\n• Smart responses\n\nUse /register to activate your account and get started!")
                     return {"ok": True}
                     
                 elif cmd == "/help":
@@ -239,7 +241,7 @@ async def handle_telegram_webhook(request: Request):
 
 **📋 Commands:**
 • `/start` - Welcome message and introduction
-• `/register` - Set up your personal Second Brain
+• `/register` - Activate your account
 • `/help` - Show this help menu
 
 **👁️ View Your Content:**
@@ -558,7 +560,7 @@ Just talk to me naturally! I understand:
             
             # Process non-command messages with natural language
             else:
-                log(f"� Processing natural language: {text}")
+                log(f"💬 Processing natural language: {text}")
                 try:
                     # Create a mock update object for the handler
                     class MockUpdate:

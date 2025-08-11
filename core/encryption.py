@@ -17,7 +17,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 class UserEncryption:
-    """Handles per-user encryption for sensitive data like Notion tokens."""
+    """Handles per-user encryption for sensitive data like stored tokens."""
     
     def __init__(self):
         # Master encryption key from environment
