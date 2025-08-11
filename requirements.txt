@@ -1,29 +1,26 @@
-# Ultra-Lightweight Dependencies for MySecondMind Bot (Under 400MB)
-# Core dependencies only
+# Absolute Minimal Dependencies for MySecondMind Bot (Under 300MB)
+# Core FastAPI only
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
+
+# Essential HTTP and Telegram
 httpx>=0.27.0,<0.28.0
-groq>=0.15.0
-python-dotenv>=1.0.0
-cryptography>=43.0.0
-supabase>=2.8.0
 python-telegram-bot>=21.0.0
 requests>=2.31.0
+
+# Core functionality only
+groq>=0.15.0
+python-dotenv>=1.0.0
+supabase>=2.8.0
+cryptography>=43.0.0
 beautifulsoup4>=4.12.0
 
 # Essential time parsing only
 parsedatetime>=2.6
 python-dateutil>=2.8.2
 
-# Lightweight scheduling
-APScheduler>=3.10.4
-
-# Add back lighter ML dependencies:
-numpy>=1.24.0
-nltk>=3.8.1
-faiss-cpu>=1.8.0
-
-# Keep these heavy ones removed:
-# sentence-transformers  # Still too heavy (~200MB)
-# torch                  # Way too heavy (~200MB)
-# transformers           # Too heavy (~150MB)
+# Remove ALL optional dependencies:
+# APScheduler  # Remove notifications for now
+# numpy        # Remove ML features
+# nltk         # Remove text processing
+# faiss-cpu    # Remove vector search

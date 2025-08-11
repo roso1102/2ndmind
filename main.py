@@ -69,13 +69,17 @@ except ImportError:
 except Exception as e:
     log(f"⚠️ Full semantic search failed: {e}", "WARNING")
 
-# Initialize notification scheduler
+# Initialize notification scheduler (optional)
 try:
     from core.notification_scheduler import get_notification_scheduler
     notification_scheduler = get_notification_scheduler()
     log("✅ Notification scheduler initialized")
+except ImportError:
+    log("⚠️ Notification scheduler not available (APScheduler not installed)", "WARNING")
+    notification_scheduler = None
 except Exception as e:
     log(f"⚠️ Notification scheduler initialization failed: {e}", "WARNING")
+    notification_scheduler = None
 
 # Initialize advanced AI
 try:
