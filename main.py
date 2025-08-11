@@ -248,7 +248,19 @@ async def handle_telegram_webhook(request: Request):
 • `/notes` - Show your recent notes  
 • `/tasks` - Show your recent tasks
 • `/links` - Show your saved links
+• `/reminders` - Show your reminders
 • `/stats` - Show content statistics
+
+**➕ Create Content:**
+• `/add note <text>`
+• `/add task <text>`
+• `/add link <url> [context]`
+• `/add reminder <text>`
+
+**✏️ Edit / 🗑️ Delete / ✅ Complete:**
+• `/edit <id> <new text>` or `/edit note <id> <new text>`
+• `/delete <id>` or `/delete task <id>`
+• `/complete <id>` or `/complete task <id>`
 
 **🔍 Search & Find:**
 • `/search <query>` - Search all your content
@@ -335,6 +347,7 @@ Just talk to me naturally! I understand:
                     await send_message(chat_id, "🟢 Bot is healthy and running!")
                     return {"ok": True}
                 
+                # View commands
                 elif cmd == "/notes":
                     log(f"🗒️ Processing /notes for user {user_id}")
                     # Create mock update for content commands
@@ -461,10 +474,52 @@ Just talk to me naturally! I understand:
                         await send_message(chat_id, f"❌ Error retrieving links: {str(e)}")
                     return {"ok": True}
                 
-                elif cmd.startswith("/search"):
-                    log(f"🔍 Processing /search for user {user_id}")
+                elif cmd == "/reminders":
+                    log(f"⏰ Processing /reminders for user {user_id}")
                     try:
-                        from handlers.content_commands import search_command
+                        from handlers.content_commands import view_reminders_command
+                        user_data = message.get("from", {})
+                        
+                        class MockUpdate:
+                            def __init__(self, text, chat_id, user_id, username, first_name=None, last_name=None):
+                                self.message = MockMessage(text, chat_id)
+                                self.effective_user = MockUser(user_id, username, first_name, last_name)
+                        
+                        class MockMessage:
+                            def __init__(self, text, chat_id):
+                                self.text = text
+                                self.chat_id = chat_id
+                                
+                            async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
+                                await send_message(self.chat_id, response, parse_mode)
+                        
+                        class MockUser:
+                            def __init__(self, user_id, username, first_name=None, last_name=None):
+                                self.id = int(user_id)
+                                self.username = username
+                                self.first_name = first_name
+                                self.last_name = last_name
+                        
+                        mock_update = MockUpdate(
+                            text, chat_id, user_id, user_data.get("username"),
+                            user_data.get("first_name"), user_data.get("last_name")
+                        )
+                        
+                        if not await check_user_registration(mock_update, chat_id):
+                            return {"ok": True}
+                        
+                        await view_reminders_command(mock_update, None)
+                        log(f"✅ /reminders completed for user {user_id}")
+                    except Exception as e:
+                        log(f"❌ Error in /reminders: {e}", "ERROR")
+                        await send_message(chat_id, f"❌ Error retrieving reminders: {str(e)}")
+                    return {"ok": True}
+                
+                # CRUD via slash commands
+                elif cmd == "/add":
+                    log(f"➕ Processing /add for user {user_id}")
+                    try:
+                        from handlers.content_commands import add_command
                         user_data = message.get("from", {})
                         
                         class MockUpdate:
@@ -491,30 +546,25 @@ Just talk to me naturally! I understand:
                             def __init__(self, args):
                                 self.args = args
                         
-                        mock_update = MockUpdate(
-                            text, chat_id, user_id, user_data.get("username"),
-                            user_data.get("first_name"), user_data.get("last_name")
-                        )
+                        # Parse args after /add
+                        parts = text.split()[1:]
+                        mock_update = MockUpdate(text, chat_id, user_id, user_data.get("username"), user_data.get("first_name"), user_data.get("last_name"))
+                        mock_context = MockContext(parts)
                         
-                        # Check registration first
                         if not await check_user_registration(mock_update, chat_id):
                             return {"ok": True}
                         
-                        # Parse search arguments
-                        search_args = text.split()[1:] if len(text.split()) > 1 else []
-                        mock_context = MockContext(search_args)
-                            
-                        await search_command(mock_update, mock_context)
-                        log(f"✅ /search completed for user {user_id}")
+                        await add_command(mock_update, mock_context)
+                        log(f"✅ /add completed for user {user_id}")
                     except Exception as e:
-                        log(f"❌ Error in /search: {e}", "ERROR")
-                        await send_message(chat_id, f"❌ Error searching content: {str(e)}")
+                        log(f"❌ Error in /add: {e}", "ERROR")
+                        await send_message(chat_id, f"❌ Error adding content: {str(e)}")
                     return {"ok": True}
                 
-                elif cmd == "/stats":
-                    log(f"📊 Processing /stats for user {user_id}")
+                elif cmd == "/delete":
+                    log(f"🗑️ Processing /delete for user {user_id}")
                     try:
-                        from handlers.content_commands import content_stats_command
+                        from handlers.content_commands import delete_command
                         user_data = message.get("from", {})
                         
                         class MockUpdate:
@@ -537,20 +587,110 @@ Just talk to me naturally! I understand:
                                 self.first_name = first_name
                                 self.last_name = last_name
                         
-                        mock_update = MockUpdate(
-                            text, chat_id, user_id, user_data.get("username"),
-                            user_data.get("first_name"), user_data.get("last_name")
-                        )
+                        class MockContext:
+                            def __init__(self, args):
+                                self.args = args
                         
-                        # Check registration first
+                        parts = text.split()[1:]
+                        mock_update = MockUpdate(text, chat_id, user_id, user_data.get("username"), user_data.get("first_name"), user_data.get("last_name"))
+                        mock_context = MockContext(parts)
+                        
                         if not await check_user_registration(mock_update, chat_id):
                             return {"ok": True}
-                            
-                        await content_stats_command(mock_update, None)
-                        log(f"✅ /stats completed for user {user_id}")
+                        
+                        await delete_command(mock_update, mock_context)
+                        log(f"✅ /delete completed for user {user_id}")
                     except Exception as e:
-                        log(f"❌ Error in /stats: {e}", "ERROR")
-                        await send_message(chat_id, f"❌ Error retrieving stats: {str(e)}")
+                        log(f"❌ Error in /delete: {e}", "ERROR")
+                        await send_message(chat_id, f"❌ Error deleting content: {str(e)}")
+                    return {"ok": True}
+                
+                elif cmd == "/complete":
+                    log(f"✅ Processing /complete for user {user_id}")
+                    try:
+                        from handlers.content_commands import complete_command
+                        user_data = message.get("from", {})
+                        
+                        class MockUpdate:
+                            def __init__(self, text, chat_id, user_id, username, first_name=None, last_name=None):
+                                self.message = MockMessage(text, chat_id)
+                                self.effective_user = MockUser(user_id, username, first_name, last_name)
+                        
+                        class MockMessage:
+                            def __init__(self, text, chat_id):
+                                self.text = text
+                                self.chat_id = chat_id
+                                
+                            async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
+                                await send_message(self.chat_id, response, parse_mode)
+                        
+                        class MockUser:
+                            def __init__(self, user_id, username, first_name=None, last_name=None):
+                                self.id = int(user_id)
+                                self.username = username
+                                self.first_name = first_name
+                                self.last_name = last_name
+                        
+                        class MockContext:
+                            def __init__(self, args):
+                                self.args = args
+                        
+                        parts = text.split()[1:]
+                        mock_update = MockUpdate(text, chat_id, user_id, user_data.get("username"), user_data.get("first_name"), user_data.get("last_name"))
+                        mock_context = MockContext(parts)
+                        
+                        if not await check_user_registration(mock_update, chat_id):
+                            return {"ok": True}
+                        
+                        await complete_command(mock_update, mock_context)
+                        log(f"✅ /complete completed for user {user_id}")
+                    except Exception as e:
+                        log(f"❌ Error in /complete: {e}", "ERROR")
+                        await send_message(chat_id, f"❌ Error completing task: {str(e)}")
+                    return {"ok": True}
+                
+                elif cmd == "/edit":
+                    log(f"✏️ Processing /edit for user {user_id}")
+                    try:
+                        from handlers.content_commands import edit_command
+                        user_data = message.get("from", {})
+                        
+                        class MockUpdate:
+                            def __init__(self, text, chat_id, user_id, username, first_name=None, last_name=None):
+                                self.message = MockMessage(text, chat_id)
+                                self.effective_user = MockUser(user_id, username, first_name, last_name)
+                        
+                        class MockMessage:
+                            def __init__(self, text, chat_id):
+                                self.text = text
+                                self.chat_id = chat_id
+                                
+                            async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
+                                await send_message(self.chat_id, response, parse_mode)
+                        
+                        class MockUser:
+                            def __init__(self, user_id, username, first_name=None, last_name=None):
+                                self.id = int(user_id)
+                                self.username = username
+                                self.first_name = first_name
+                                self.last_name = last_name
+                        
+                        class MockContext:
+                            def __init__(self, args):
+                                self.args = args
+                        
+                        parts = text.split()[1:]
+                        mock_update = MockUpdate(text, chat_id, user_id, user_data.get("username"), user_data.get("first_name"), user_data.get("last_name"))
+                        mock_context = MockContext(parts)
+                        
+                        if not await check_user_registration(mock_update, chat_id):
+                            return {"ok": True}
+                        
+                        await edit_command(mock_update, mock_context)
+                        log(f"✅ /edit completed for user {user_id}")
+                    except Exception as e:
+                        log(f"❌ Error in /edit: {e}", "ERROR")
+                        await send_message(chat_id, f"❌ Error editing content: {str(e)}")
                     return {"ok": True}
                 
                 else:

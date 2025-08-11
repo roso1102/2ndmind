@@ -350,3 +350,117 @@ async def content_stats_command(update, context) -> None:
         await update.message.reply_text(
             "❌ Error retrieving statistics. Please try again later."
         )
+
+# ==========================
+# CRUD Slash Commands
+# ==========================
+
+async def add_command(update, context) -> None:
+    """Add a new item via slash command.
+    Usage:
+    /add note <text>
+    /add task <text>
+    /add link <url> [context]
+    /add reminder <text>
+    """
+    user_id = str(update.effective_user.id)
+    if not context or not getattr(context, 'args', None) or len(context.args) < 2:
+        await update.message.reply_text(
+            "❓ Usage:\n"
+            "• /add note <text>\n"
+            "• /add task <text>\n"
+            "• /add link <url> [context]\n"
+            "• /add reminder <text>"
+        )
+        return
+    
+    kind = context.args[0].lower()
+    text = " ".join(context.args[1:]).strip()
+    
+    from handlers.supabase_content import content_handler
+    from handlers.natural_language import classifier
+    
+    # Build a simple classification to pass along confidence/reasoning
+    classification = {"confidence": 0.99, "reasoning": "Slash command"}
+    
+    try:
+        if kind == 'note':
+            result = await content_handler.save_note(user_id, text, classification)
+        elif kind == 'task':
+            result = await content_handler.save_task(user_id, text, classification)
+        elif kind == 'link':
+            # try to detect url if user put context first by mistake
+            result = await content_handler.save_link(user_id, text.split()[0], " ".join(text.split()[1:]), classification)
+        elif kind == 'reminder':
+            result = await content_handler.save_reminder(user_id, text, classification)
+        else:
+            await update.message.reply_text("❌ Unknown type. Use one of: note, task, link, reminder")
+            return
+        
+        if result.get('success'):
+            await update.message.reply_text(result.get('message', '✅ Saved successfully'))
+        else:
+            await update.message.reply_text(f"❌ Save failed: {result.get('error', 'Unknown error')}")
+    except Exception as e:
+        logger.error(f"/add failed: {e}")
+        await update.message.reply_text("❌ Failed to add item. Please try again.")
+
+async def delete_command(update, context) -> None:
+    """Delete an item via slash command.
+    Usage:
+    /delete <number|uuid>
+    /delete task <number|uuid>
+    """
+    user_id = str(update.effective_user.id)
+    if not context or not getattr(context, 'args', None) or len(context.args) < 1:
+        await update.message.reply_text("❓ Usage: /delete <id> or /delete task <id>")
+        return
+    
+    parts = context.args
+    message = "delete " + " ".join(parts)
+    from handlers.content_management import content_manager
+    result = await content_manager.handle_management_command(user_id, message)
+    if result.get('success'):
+        await update.message.reply_text(result['message'])
+    else:
+        await update.message.reply_text(f"❌ {result.get('error', 'Delete failed')}")
+
+async def complete_command(update, context) -> None:
+    """Complete a task via slash command.
+    Usage:
+    /complete <number|uuid>
+    /complete task <number|uuid>
+    """
+    user_id = str(update.effective_user.id)
+    if not context or not getattr(context, 'args', None) or len(context.args) < 1:
+        await update.message.reply_text("❓ Usage: /complete <id> or /complete task <id>")
+        return
+    
+    parts = context.args
+    message = "complete " + " ".join(parts)
+    from handlers.content_management import content_manager
+    result = await content_manager.handle_management_command(user_id, message)
+    if result.get('success'):
+        await update.message.reply_text(result['message'])
+    else:
+        await update.message.reply_text(f"❌ {result.get('error', 'Complete failed')}")
+
+async def edit_command(update, context) -> None:
+    """Edit an item via slash command.
+    Usage:
+    /edit <id> <new text>
+    /edit note <id> <new text>
+    """
+    user_id = str(update.effective_user.id)
+    if not context or not getattr(context, 'args', None) or len(context.args) < 2:
+        await update.message.reply_text("❓ Usage: /edit <id> <new text> or /edit note <id> <new text>")
+        return
+    
+    parts = context.args
+    message = "edit " + " ".join(parts)
+    from handlers.content_management import content_manager
+    result = await content_manager.handle_management_command(user_id, message)
+    if result.get('success'):
+        await update.message.reply_text(result['message'])
+    else:
+        await update.message.reply_text(f"❌ {result.get('error', 'Edit failed')}")

@@ -177,7 +177,7 @@ class ContentManager:
                 }
             
             # Mark as complete
-            complete_result = await self.content_handler.mark_task_complete(user_id, task_id, True)
+            complete_result = await self.content_handler.mark_task_complete(user_id, actual_id, True)
             
             if complete_result.get('success'):
                 return {
@@ -194,21 +194,23 @@ class ContentManager:
     async def handle_edit_command(self, user_id: str, message: str) -> Dict:
         """Handle edit commands like 'edit note 5 new content'."""
         try:
+            from handlers.session_manager import session_manager
             # Parse edit command patterns (support both numeric IDs and UUIDs)
             edit_patterns = [
                 r'edit\s+(task|note|link|reminder)\s+([a-f0-9-]+)\s+(.+)',  # edit note uuid new content
                 r'update\s+(task|note|link|reminder)\s+([a-f0-9-]+)\s+(.+)',  # update task uuid new title
                 r'edit\s+([a-f0-9-]+)\s+(.+)',  # edit uuid new content
                 r'update\s+([a-f0-9-]+)\s+(.+)',  # update uuid new content
-                r'edit\s+(task|note|link|reminder)\s+(\d+)\s+(.+)',  # edit note 5 new content (legacy)
-                r'update\s+(task|note|link|reminder)\s+(\d+)\s+(.+)',  # update task 3 new title (legacy)
-                r'edit\s+(\d+)\s+(.+)',  # edit 5 new content (legacy)
-                r'update\s+(\d+)\s+(.+)',  # update 3 new content (legacy)
+                r'edit\s+(task|note|link|reminder)\s+(\d+)\s+(.+)',  # edit note 5 new content (sequential)
+                r'update\s+(task|note|link|reminder)\s+(\d+)\s+(.+)',  # update task 3 new title (sequential)
+                r'edit\s+(\d+)\s+(.+)',  # edit 5 new content (sequential)
+                r'update\s+(\d+)\s+(.+)',  # update 3 new content (sequential)
             ]
             
             content_type = None
             content_id = None
             new_content = None
+            is_sequential = False
             
             for pattern in edit_patterns:
                 match = re.search(pattern, message, re.IGNORECASE)
@@ -229,8 +231,19 @@ class ContentManager:
                     "error": "Please specify what to edit. Examples:\n• edit note 5 New title here\n• update task 3 Updated task description"
                 }
             
+            # Convert sequential number to actual UUID if needed
+            actual_id = content_id
+            if content_id.isdigit():
+                is_sequential = True
+                actual_id = session_manager.get_actual_id(user_id, int(content_id))
+                if not actual_id:
+                    return {
+                        "success": False,
+                        "error": f"Item #{content_id} not found. Please view your content first to get current numbers."
+                    }
+            
             # Get content details first
-            get_result = await self.content_handler.get_content_by_id(user_id, content_id)
+            get_result = await self.content_handler.get_content_by_id(user_id, actual_id)
             
             if not get_result.get('success'):
                 return {
@@ -263,7 +276,7 @@ class ContentManager:
                 updates['content'] = new_content
             
             # Update the content
-            update_result = await self.content_handler.update_content(user_id, content_id, updates)
+            update_result = await self.content_handler.update_content(user_id, actual_id, updates)
             
             if update_result.get('success'):
                 return {
