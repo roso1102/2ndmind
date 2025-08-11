@@ -18,6 +18,7 @@ beautifulsoup4>=4.12.0
 # Essential time parsing only
 parsedatetime>=2.6
 python-dateutil>=2.8.2
+pytz>=2023.3
 
 # Lightweight scheduling (only ~5MB)
 APScheduler>=3.10.4

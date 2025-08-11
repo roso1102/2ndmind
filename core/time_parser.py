@@ -71,7 +71,20 @@ class TimeParser:
             return None
         
         time_str = time_str.strip().lower()
-        reference_time = reference_time or datetime.now(timezone.utc)
+        
+        # Use user's local time as reference, not UTC
+        # This makes "tomorrow at 3pm" work correctly for user's timezone
+        import pytz
+        try:
+            # Default to Asia/Kolkata (UTC+5:30) if no timezone specified
+            if user_timezone == 'UTC':
+                user_timezone = 'Asia/Kolkata'
+            user_tz = pytz.timezone(user_timezone)
+            reference_time = reference_time or datetime.now(user_tz)
+        except:
+            # Fallback to Asia/Kolkata if timezone is invalid
+            kolkata_tz = pytz.timezone('Asia/Kolkata')
+            reference_time = reference_time or datetime.now(kolkata_tz)
         
         try:
             # Method 1: Try parsedatetime first (best for natural language)

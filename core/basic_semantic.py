@@ -26,7 +26,9 @@ class BasicSemanticEngine:
         
         # Comprehensive synonym mappings
         self.synonyms = {
-            'ai': ['artificial intelligence', 'machine learning', 'ml', 'deep learning', 'neural', 'algorithm'],
+            'ai': ['artificial intelligence', 'machine learning', 'ml', 'deep learning', 'neural', 'algorithm', 'gpt', 'chatgpt', 'openai', 'llm'],
+            'gpt': ['ai', 'artificial intelligence', 'chatgpt', 'openai', 'language model', 'llm'],
+            'chatgpt': ['ai', 'gpt', 'openai', 'artificial intelligence', 'language model'],
             'productivity': ['efficiency', 'time management', 'organization', 'workflow', 'optimization', 'performance'],
             'programming': ['coding', 'development', 'software', 'code', 'dev', 'tech', 'computer'],
             'task': ['todo', 'work', 'assignment', 'job', 'project', 'activity'],
