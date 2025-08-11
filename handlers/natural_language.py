@@ -118,12 +118,31 @@ RESPOND WITH VALID JSON ONLY:
 {{"intent": "NOTE", "confidence": 0.95, "reasoning": "Saving an idea or thought - no URL present"}}
 """
 
-        response = self.groq_client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model="llama-3.1-8b-instant",
-            temperature=0.1,
-            max_tokens=100
-        )
+        # Try larger models first for better intent classification
+        models_to_try = [
+            "llama-3.2-90b-text-preview",  # Try newest large model
+            "llama-3.2-70b-preview",       # Alternative 70B
+            "mixtral-8x7b-32768",          # Mixtral (effective ~56B)
+            "llama-3.1-8b-instant"         # Fallback to 8B
+        ]
+        
+        last_error = None
+        for model in models_to_try:
+            try:
+                response = self.groq_client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=model,
+                    temperature=0.1,
+                    max_tokens=100
+                )
+                logger.debug(f"Using model: {model}")
+                break  # Success, exit the loop
+            except Exception as e:
+                last_error = e
+                continue  # Try next model
+        else:
+            # All models failed
+            raise last_error
         
         result_text = response.choices[0].message.content.strip()
         
