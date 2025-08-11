@@ -60,18 +60,41 @@ class NotificationScheduler:
         # Initialize scheduler if available
         if SCHEDULER_AVAILABLE:
             try:
-                self.scheduler = AsyncIOScheduler()
-                self.scheduler.start()
-                logger.info("✅ Notification scheduler initialized")
-                
-                # Schedule periodic tasks
-                self._schedule_periodic_tasks()
+                # Check if we're in an async context
+                try:
+                    loop = asyncio.get_running_loop()
+                    # We're in an async context, defer scheduler initialization
+                    self.scheduler = None
+                    logger.info("✅ Notification scheduler will be initialized on first use (async context)")
+                except RuntimeError:
+                    # No running loop, safe to initialize now
+                    self.scheduler = AsyncIOScheduler()
+                    self.scheduler.start()
+                    logger.info("✅ Notification scheduler initialized")
+                    
+                    # Schedule periodic tasks
+                    self._schedule_periodic_tasks()
                 
             except Exception as e:
                 logger.error(f"❌ Failed to initialize scheduler: {e}")
                 self.scheduler = None
         else:
             logger.warning("⚠️ Scheduler not available. Notifications will be processed manually.")
+    
+    async def _ensure_scheduler_initialized(self):
+        """Ensure scheduler is initialized (for async contexts)."""
+        if not self.scheduler and SCHEDULER_AVAILABLE:
+            try:
+                self.scheduler = AsyncIOScheduler()
+                self.scheduler.start()
+                logger.info("✅ Notification scheduler initialized (deferred)")
+                
+                # Schedule periodic tasks
+                self._schedule_periodic_tasks()
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to initialize deferred scheduler: {e}")
+                self.scheduler = None
     
     def _schedule_periodic_tasks(self):
         """Schedule recurring system tasks."""
@@ -118,6 +141,9 @@ class NotificationScheduler:
     
     async def schedule_notification(self, notification: NotificationTask) -> bool:
         """Schedule a notification."""
+        # Ensure scheduler is initialized
+        await self._ensure_scheduler_initialized()
+        
         if not self.scheduler:
             return await self._manual_schedule(notification)
         

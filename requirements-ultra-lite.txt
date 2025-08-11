@@ -18,10 +18,12 @@ python-dateutil>=2.8.2
 # Lightweight scheduling
 APScheduler>=3.10.4
 
-# Remove ALL heavy ML dependencies:
-# sentence-transformers  # Too heavy
-# nltk                   # Too heavy  
-# numpy                  # Too heavy
-# torch                  # Way too heavy
-# transformers           # Way too heavy
-# faiss-cpu             # Too heavy
+# Add back lighter ML dependencies:
+numpy>=1.24.0
+nltk>=3.8.1
+faiss-cpu>=1.8.0
+
+# Keep these heavy ones removed:
+# sentence-transformers  # Still too heavy (~200MB)
+# torch                  # Way too heavy (~200MB)
+# transformers           # Too heavy (~150MB)
