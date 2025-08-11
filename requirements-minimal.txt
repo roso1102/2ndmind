@@ -19,8 +19,12 @@ beautifulsoup4>=4.12.0
 parsedatetime>=2.6
 python-dateutil>=2.8.2
 
-# Remove ALL optional dependencies:
-# APScheduler  # Remove notifications for now
-# numpy        # Remove ML features
-# nltk         # Remove text processing
-# faiss-cpu    # Remove vector search
+# Lightweight scheduling (only ~5MB)
+APScheduler>=3.10.4
+
+# Keep these removed (too heavy):
+# numpy        # Remove ML features (~30MB)
+# nltk         # Remove text processing (~50MB)  
+# faiss-cpu    # Remove vector search (~50MB)
+# sentence-transformers  # Too heavy (~200MB)
+# torch        # Way too heavy (~200MB)

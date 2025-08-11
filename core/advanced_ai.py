@@ -170,7 +170,7 @@ Remember: Be conversational, helpful, and intelligent. Think like ChatGPT!
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": main_prompt}
                 ],
-                model="llama-3.1-70b-versatile",  # Using the most capable free model
+                model="llama-3.1-8b-instant",  # Updated to current available model
                 temperature=0.3,
                 max_tokens=500
             )
