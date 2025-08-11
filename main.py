@@ -47,20 +47,27 @@ from models.user_management import user_manager
 # Initialize advanced AI features
 log("🚀 Initializing Advanced AI Features...")
 
-# Initialize semantic search engine
+# Initialize semantic search engine with multiple fallbacks
 try:
     from core.semantic_search import get_semantic_engine
     semantic_engine = get_semantic_engine()
     log("✅ Full semantic search engine initialized")
-except ImportError as e:
+except ImportError:
     try:
         from core.lightweight_semantic import get_lightweight_engine
         semantic_engine = get_lightweight_engine()
         log("✅ Lightweight semantic search initialized (memory optimized)")
+    except ImportError:
+        try:
+            from core.basic_semantic import get_basic_engine
+            semantic_engine = get_basic_engine()
+            log("✅ Ultra-basic semantic search initialized (pure Python)")
+        except Exception as e3:
+            log(f"⚠️ All semantic search engines failed: {e3}", "WARNING")
     except Exception as e2:
-        log(f"⚠️ Semantic search initialization failed: {e2}", "WARNING")
+        log(f"⚠️ Lightweight semantic search failed: {e2}", "WARNING")
 except Exception as e:
-    log(f"⚠️ Semantic search initialization failed: {e}", "WARNING")
+    log(f"⚠️ Full semantic search failed: {e}", "WARNING")
 
 # Initialize notification scheduler
 try:
