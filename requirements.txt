@@ -9,3 +9,26 @@ supabase>=2.8.0
 python-telegram-bot>=21.0.0
 requests>=2.31.0
 beautifulsoup4>=4.12.0
+
+# Advanced AI & ML Dependencies
+sentence-transformers>=3.0.0
+faiss-cpu>=1.8.0
+torch>=2.0.0
+transformers>=4.40.0
+
+# Time Parsing & Scheduling
+parsedatetime>=2.6
+python-dateutil>=2.8.2
+APScheduler>=3.10.4
+
+# Background Tasks & Caching
+redis>=5.0.0
+celery>=5.3.0
+
+# Advanced Text Processing
+nltk>=3.8.1
+spacy>=3.7.0
+
+# Additional utilities
+numpy>=1.24.0
+pandas>=2.0.0

@@ -59,29 +59,35 @@ class SearchEngine:
         }
     
     async def search(self, user_id: str, query: str, limit: int = 10) -> Dict:
-        """Main search interface with multiple strategies."""
+        """Main search interface with multiple strategies including semantic search."""
         try:
             # Step 1: Preprocess query
             processed_query = self._preprocess_query(query)
             
-            # Step 2: Try PostgreSQL full-text search first
-            results = await self._fulltext_search(user_id, processed_query, limit)
+            # Step 2: Try semantic search first (if available)
+            semantic_results = await self._semantic_search(user_id, processed_query, limit)
             
-            # Step 3: If no results, try expanded query
-            if not results.get('results'):
+            # Step 3: Try PostgreSQL full-text search
+            fulltext_results = await self._fulltext_search(user_id, processed_query, limit)
+            
+            # Step 4: If no results, try expanded query
+            if not fulltext_results.get('results'):
                 expanded_query = self._expand_query(processed_query)
                 if expanded_query != processed_query:
-                    results = await self._fulltext_search(user_id, expanded_query, limit)
+                    fulltext_results = await self._fulltext_search(user_id, expanded_query, limit)
             
-            # Step 4: If still no results, try fuzzy search
-            if not results.get('results'):
-                results = await self._fuzzy_search(user_id, query, limit)
+            # Step 5: If still no results, try fuzzy search
+            if not fulltext_results.get('results'):
+                fulltext_results = await self._fuzzy_search(user_id, query, limit)
             
-            # Step 5: Post-process results
-            if results.get('results'):
-                results['results'] = self._rank_and_format_results(results['results'], query)
+            # Step 6: Combine and rank results
+            combined_results = self._combine_search_results(semantic_results, fulltext_results, limit)
             
-            return results
+            # Step 7: Post-process results
+            if combined_results.get('results'):
+                combined_results['results'] = self._rank_and_format_results(combined_results['results'], query)
+            
+            return combined_results
             
         except Exception as e:
             logger.error(f"Search error: {e}")
@@ -246,6 +252,45 @@ class SearchEngine:
             snippet = snippet + "..."
         
         return snippet.strip()
+    
+    async def _semantic_search(self, user_id: str, query: str, limit: int) -> Dict:
+        """Perform semantic search using embeddings."""
+        try:
+            from core.semantic_search import semantic_search
+            return await semantic_search(user_id, query, limit)
+        except Exception as e:
+            logger.debug(f"Semantic search not available: {e}")
+            return {"success": False, "results": []}
+    
+    def _combine_search_results(self, semantic_results: Dict, fulltext_results: Dict, limit: int) -> Dict:
+        """Combine semantic and fulltext search results."""
+        combined = []
+        seen_ids = set()
+        
+        # Add semantic results first (higher priority)
+        if semantic_results.get('success') and semantic_results.get('results'):
+            for result in semantic_results['results'][:limit//2]:  # Take half from semantic
+                result_id = result.get('id')
+                if result_id and result_id not in seen_ids:
+                    result['search_method'] = 'semantic'
+                    combined.append(result)
+                    seen_ids.add(result_id)
+        
+        # Add fulltext results
+        if fulltext_results.get('success') and fulltext_results.get('results'):
+            for result in fulltext_results['results']:
+                result_id = result.get('id')
+                if result_id and result_id not in seen_ids and len(combined) < limit:
+                    result['search_method'] = 'fulltext'
+                    combined.append(result)
+                    seen_ids.add(result_id)
+        
+        return {
+            "success": True,
+            "results": combined,
+            "count": len(combined),
+            "search_methods_used": ["semantic", "fulltext"] if semantic_results.get('success') else ["fulltext"]
+        }
 
 # Global search engine instance
 search_engine = None

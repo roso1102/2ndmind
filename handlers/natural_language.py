@@ -224,15 +224,15 @@ RESPOND WITH VALID JSON ONLY:
 classifier = IntentClassifier()
 
 async def process_natural_message(update, context=None) -> None:
-    """Process natural language messages with AI intent classification."""
+    """Process natural language messages with advanced AI."""
     
     if not update.message or not update.message.text:
         return
     
     user_message = update.message.text
-    user_id = update.effective_user.id
+    user_id = str(update.effective_user.id)
     
-    logger.info(f"📝 Processing message from user {user_id}: '{user_message[:50]}...'")
+    logger.info(f"🧠 Processing with Advanced AI - user {user_id}: '{user_message[:50]}...'")
     
     try:
         # First check if it's a content management command (delete, complete, edit)
@@ -245,7 +245,19 @@ async def process_natural_message(update, context=None) -> None:
                 await update.message.reply_text(f"❌ {result.get('error', 'Management command failed')}")
             return
         
-        # Classify the message intent
+        # Use Advanced AI for processing
+        try:
+            from core.advanced_ai import process_with_advanced_ai
+            ai_response = await process_with_advanced_ai(user_id, user_message)
+            
+            # Handle the AI response
+            await handle_advanced_ai_response(update, context, ai_response)
+            return
+            
+        except Exception as ai_error:
+            logger.warning(f"Advanced AI failed: {ai_error}. Falling back to basic classification.")
+        
+        # Fallback to basic classification if Advanced AI fails
         classification = await classifier.classify_message(user_message)
         intent = classification['intent']
         confidence = classification['confidence']
@@ -273,6 +285,120 @@ async def process_natural_message(update, context=None) -> None:
         await update.message.reply_text(
             "🤔 I had trouble understanding that. Could you try rephrasing or use a specific command like /help?"
         )
+
+async def handle_advanced_ai_response(update, context, ai_response) -> None:
+    """Handle response from advanced AI system."""
+    
+    try:
+        user_id = str(update.effective_user.id)
+        
+        # Send the main AI response
+        await update.message.reply_text(ai_response.text, parse_mode='Markdown')
+        
+        # Handle content saving if needed
+        if ai_response.content_to_save:
+            content_data = ai_response.content_to_save
+            content_type = content_data.get('type')
+            
+            # Save content based on type
+            from handlers.supabase_content import content_handler
+            
+            if content_type == 'note':
+                result = await content_handler.save_note(user_id, content_data.get('content', ''), {})
+            elif content_type == 'task':
+                result = await content_handler.save_task(user_id, content_data.get('content', ''), {})
+            elif content_type == 'link':
+                result = await content_handler.save_link(user_id, content_data.get('url', ''), content_data.get('context', ''), {})
+            elif content_type == 'reminder':
+                # Handle reminder with time parsing
+                await handle_advanced_reminder_saving(update, content_data)
+                return
+            
+            # Confirm save result
+            if result and result.get('success'):
+                await update.message.reply_text(f"✅ Saved {content_type}: {result.get('title', 'Untitled')}")
+        
+        # Handle followup questions
+        if ai_response.needs_followup and ai_response.followup_question:
+            # Mark user as awaiting followup
+            from core.advanced_ai import advanced_ai
+            context_obj = advanced_ai.conversation_contexts.get(user_id)
+            if context_obj:
+                context_obj.awaiting_followup = True
+                context_obj.followup_context = {
+                    'original_intent': ai_response.intent,
+                    'content_data': ai_response.content_to_save
+                }
+        
+        # Show suggested actions if available
+        if ai_response.suggested_actions:
+            suggestions = "\n".join([f"• {action}" for action in ai_response.suggested_actions[:3]])
+            await update.message.reply_text(f"💡 **Suggestions:**\n{suggestions}", parse_mode='Markdown')
+    
+    except Exception as e:
+        logger.error(f"Error handling advanced AI response: {e}")
+        await update.message.reply_text("I processed your message but had trouble with some follow-up actions.")
+
+async def handle_advanced_reminder_saving(update, content_data: dict) -> None:
+    """Handle reminder saving with time parsing."""
+    
+    try:
+        user_id = str(update.effective_user.id)
+        
+        # Check if time is specified
+        time_str = content_data.get('time')
+        if not time_str:
+            # Ask for time
+            await update.message.reply_text(
+                "⏰ When would you like to be reminded? \n\nTry: 'tomorrow at 3pm', 'in 2 hours', 'next Monday morning'"
+            )
+            
+            # Set up followup context
+            from core.advanced_ai import advanced_ai
+            context_obj = advanced_ai.conversation_contexts.get(user_id)
+            if context_obj:
+                context_obj.awaiting_followup = True
+                context_obj.followup_context = {
+                    'original_intent': 'SAVE_REMINDER',
+                    'reminder_data': content_data
+                }
+            return
+        
+        # Parse the time
+        from core.time_parser import parse_time_expression
+        parsed_time = await parse_time_expression(time_str)
+        
+        if parsed_time and parsed_time.get('datetime'):
+            # Save reminder with parsed time
+            from handlers.supabase_content import content_handler
+            
+            reminder_content = f"{content_data.get('title', '')} - {content_data.get('content', '')}"
+            result = await content_handler.save_reminder(user_id, reminder_content, {
+                'scheduled_time': parsed_time['datetime'].isoformat()
+            })
+            
+            if result.get('success'):
+                formatted_time = parsed_time['datetime'].strftime('%B %d, %Y at %I:%M %p')
+                await update.message.reply_text(f"⏰ Reminder set for {formatted_time}!")
+                
+                # Schedule the actual notification
+                from core.notification_scheduler import schedule_reminder
+                await schedule_reminder(
+                    user_id,
+                    content_data.get('title', 'Reminder'),
+                    content_data.get('content', ''),
+                    parsed_time['datetime']
+                )
+            else:
+                await update.message.reply_text("❌ Failed to save reminder. Please try again.")
+        else:
+            await update.message.reply_text(
+                "I couldn't understand that time. Try: 'tomorrow at 3pm', 'in 2 hours', or 'next Monday'"
+            )
+    
+    except Exception as e:
+        logger.error(f"Error handling advanced reminder: {e}")
+        await update.message.reply_text("❌ Error setting up reminder. Please try again.")
 
 async def handle_note_intent(update, context, message: str, classification: Dict) -> None:
     """Handle note saving requests."""

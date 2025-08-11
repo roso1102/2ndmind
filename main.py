@@ -30,11 +30,6 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_TOKEN')
 WEBHOOK_URL = os.getenv('RENDER_EXTERNAL_URL', 'https://mymind-924q.onrender.com')
 API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
-# Import handlers
-from handlers.register import register_handler
-from handlers.natural_language import process_natural_message
-from models.user_management import user_manager
-
 def log(message, level="INFO"):
     """Simple logging function"""
     if level == "ERROR":
@@ -43,6 +38,39 @@ def log(message, level="INFO"):
         logger.warning(message)
     else:
         logger.info(message)
+
+# Import handlers
+from handlers.register import register_handler
+from handlers.natural_language import process_natural_message
+from models.user_management import user_manager
+
+# Initialize advanced AI features
+log("🚀 Initializing Advanced AI Features...")
+
+# Initialize semantic search engine
+try:
+    from core.semantic_search import get_semantic_engine
+    semantic_engine = get_semantic_engine()
+    log("✅ Semantic search engine initialized")
+except Exception as e:
+    log(f"⚠️ Semantic search initialization failed: {e}", "WARNING")
+
+# Initialize notification scheduler
+try:
+    from core.notification_scheduler import get_notification_scheduler
+    notification_scheduler = get_notification_scheduler()
+    log("✅ Notification scheduler initialized")
+except Exception as e:
+    log(f"⚠️ Notification scheduler initialization failed: {e}", "WARNING")
+
+# Initialize advanced AI
+try:
+    from core.advanced_ai import advanced_ai
+    log("✅ Advanced AI conversation engine initialized")
+except Exception as e:
+    log(f"⚠️ Advanced AI initialization failed: {e}", "WARNING")
+
+log("🎉 Advanced features initialization complete!")
 
 async def check_user_registration(mock_update, chat_id):
     """Check if user is registered, send registration prompt if not."""
