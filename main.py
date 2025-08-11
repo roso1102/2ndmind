@@ -49,25 +49,33 @@ log("🚀 Initializing Advanced AI Features...")
 
 # Initialize semantic search engine with multiple fallbacks
 try:
-    from core.semantic_search import get_semantic_engine
-    semantic_engine = get_semantic_engine()
-    log("✅ Full semantic search engine initialized")
+    from core.enhanced_semantic import get_enhanced_engine, log_memory_usage
+    semantic_engine = get_enhanced_engine()
+    log("✅ Enhanced semantic search engine initialized (scikit-learn)")
+    log_memory_usage("after enhanced semantic init")
 except ImportError:
     try:
-        from core.lightweight_semantic import get_lightweight_engine
-        semantic_engine = get_lightweight_engine()
-        log("✅ Lightweight semantic search initialized (memory optimized)")
+        from core.semantic_search import get_semantic_engine
+        semantic_engine = get_semantic_engine()
+        log("✅ Full semantic search engine initialized")
     except ImportError:
         try:
-            from core.basic_semantic import get_basic_engine
-            semantic_engine = get_basic_engine()
-            log("✅ Ultra-basic semantic search initialized (pure Python)")
-        except Exception as e3:
-            log(f"⚠️ All semantic search engines failed: {e3}", "WARNING")
-    except Exception as e2:
-        log(f"⚠️ Lightweight semantic search failed: {e2}", "WARNING")
+            from core.lightweight_semantic import get_lightweight_engine
+            semantic_engine = get_lightweight_engine()
+            log("✅ Lightweight semantic search initialized (memory optimized)")
+        except ImportError:
+            try:
+                from core.basic_semantic import get_basic_engine
+                semantic_engine = get_basic_engine()
+                log("✅ Ultra-basic semantic search initialized (pure Python)")
+            except Exception as e3:
+                log(f"⚠️ All semantic search engines failed: {e3}", "WARNING")
+        except Exception as e2:
+            log(f"⚠️ Lightweight semantic search failed: {e2}", "WARNING")
+    except Exception as e:
+        log(f"⚠️ Full semantic search failed: {e}", "WARNING")
 except Exception as e:
-    log(f"⚠️ Full semantic search failed: {e}", "WARNING")
+    log(f"⚠️ Enhanced semantic search failed: {e}", "WARNING")
 
 # Initialize notification scheduler (optional)
 try:
@@ -822,6 +830,13 @@ Just talk to me naturally! I understand:
 @app.on_event("startup")
 async def startup_event():
     """Set up webhook on startup"""
+    # Log initial memory usage
+    try:
+        from core.enhanced_semantic import log_memory_usage
+        log_memory_usage("startup")
+    except ImportError:
+        pass
+    
     if TELEGRAM_BOT_TOKEN:
         webhook_url = f"{WEBHOOK_URL}/webhook"
         try:
