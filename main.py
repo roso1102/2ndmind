@@ -829,7 +829,7 @@ Just talk to me naturally! I understand:
 # --- Startup event ---
 @app.on_event("startup")
 async def startup_event():
-    """Set up webhook on startup"""
+    """Set up webhook on startup and start background poller"""
     # Log initial memory usage
     try:
         from core.enhanced_semantic import log_memory_usage
@@ -862,8 +862,10 @@ async def startup_event():
         import asyncio as _asyncio
         _asyncio.create_task(scheduler.run_background_poller(poll_interval_seconds=15, grace_seconds=30))
         log("🛎️ Background notification poller started (15s interval, 30s grace)")
+        # Also try initializing APScheduler now that loop exists (optional)
+        await scheduler._ensure_scheduler_initialized()
     except Exception as e:
-        log(f"⚠️ Failed to start background poller: {e}", level="WARNING")
+        log(f"⚠️ Failed to start background poller/scheduler: {e}", level="WARNING")
 
 if __name__ == "__main__":
     import uvicorn

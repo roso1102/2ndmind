@@ -69,13 +69,9 @@ class NotificationScheduler:
                     self.scheduler = None
                     logger.info("✅ Notification scheduler will be initialized on first use (async context)")
                 except RuntimeError:
-                    # No running loop, safe to initialize now
-                    self.scheduler = AsyncIOScheduler()
-                    self.scheduler.start()
-                    logger.info("✅ Notification scheduler initialized")
-                    
-                    # Schedule periodic tasks
-                    self._schedule_periodic_tasks()
+                    # No running loop yet; defer initialization until first async use
+                    self.scheduler = None
+                    logger.info("⏳ Notification scheduler will initialize after event loop starts")
                 
             except Exception as e:
                 logger.error(f"❌ Failed to initialize scheduler: {e}")
@@ -177,7 +173,9 @@ class NotificationScheduler:
                 try:
                     asyncio.get_running_loop()
                 except RuntimeError:
-                    asyncio.set_event_loop(asyncio.new_event_loop())
+                    # Still no loop; do not force-create here. Defer init.
+                    logger.info("⏳ Deferring scheduler init until loop is running")
+                    return
                 
                 self.scheduler = AsyncIOScheduler()
                 self.scheduler.start()
