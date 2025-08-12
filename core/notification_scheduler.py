@@ -704,8 +704,10 @@ async def schedule_reminder(user_id: str, title: str, message: str, scheduled_ti
     """Schedule a reminder notification."""
     scheduler = get_notification_scheduler()
     
+    import uuid
+    
     notification = NotificationTask(
-        id=f"reminder_{user_id}_{int(scheduled_time.timestamp())}",
+        id=str(uuid.uuid4()),  # Generate proper UUID
         user_id=user_id,
         title=title,
         message=message,
@@ -720,8 +722,10 @@ async def schedule_task_reminder(user_id: str, task_title: str, due_time: dateti
     """Schedule a task due reminder."""
     scheduler = get_notification_scheduler()
     
+    import uuid
+    
     notification = NotificationTask(
-        id=f"task_{user_id}_{int(due_time.timestamp())}",
+        id=str(uuid.uuid4()),  # Generate proper UUID
         user_id=user_id,
         title=f"Task Due: {task_title}",
         message=f"Your task '{task_title}' is due now!",
