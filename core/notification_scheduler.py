@@ -357,7 +357,8 @@ class NotificationScheduler:
             import httpx
             import os
             
-            telegram_token = os.getenv('TELEGRAM_BOT_TOKEN')
+            # Accept both var names to avoid env mismatches
+            telegram_token = os.getenv('TELEGRAM_BOT_TOKEN') or os.getenv('TELEGRAM_TOKEN')
             if not telegram_token:
                 logger.error("❌ TELEGRAM_BOT_TOKEN not found")
                 return False
