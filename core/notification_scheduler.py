@@ -85,6 +85,12 @@ class NotificationScheduler:
         """Ensure scheduler is initialized (for async contexts)."""
         if not self.scheduler and SCHEDULER_AVAILABLE:
             try:
+                # Ensure an event loop exists
+                try:
+                    asyncio.get_running_loop()
+                except RuntimeError:
+                    asyncio.set_event_loop(asyncio.new_event_loop())
+                
                 self.scheduler = AsyncIOScheduler()
                 self.scheduler.start()
                 logger.info("✅ Notification scheduler initialized (deferred)")
@@ -151,7 +157,11 @@ class NotificationScheduler:
         logger.info(f"✅ Successfully saved notification {notification.id} to database")
         
         # Ensure scheduler is initialized
-        await self._ensure_scheduler_initialized()
+        # Initialize scheduler only if needed; do not crash if loop not ready
+        try:
+            await self._ensure_scheduler_initialized()
+        except Exception as e:
+            logger.warning(f"⚠️ Scheduler init skipped (will rely on DB polling): {e}")
         
         # Try to schedule in APScheduler as backup/optimization
         if self.scheduler:
@@ -542,11 +552,12 @@ class NotificationScheduler:
             }
             
             response = supabase_rest.table('notifications').insert(notification_data).execute()
-            
+
             # Debug: Log the full response to see what's happening
             logger.info(f"🔍 DEBUG: Supabase response: {response}")
-            
-            if response and response.get('success'):
+
+            # Our REST client returns { data: [...], error: None } on success
+            if response and response.get('error') is None:
                 logger.info(f"💾 Saved notification {notification.id} to database")
                 return True
             else:
