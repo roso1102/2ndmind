@@ -409,10 +409,12 @@ async def handle_advanced_reminder_saving(update, content_data: dict) -> None:
         if parsed_time and parsed_time.get('datetime'):
             # Save reminder with parsed time
             from handlers.supabase_content import content_handler
+            from datetime import timezone as _tz
             
             reminder_content = f"{content_data.get('title', '')} - {content_data.get('content', '')}"
+            dt_utc = parsed_time['datetime'].astimezone(_tz.utc)
             result = await content_handler.save_reminder(user_id, reminder_content, {
-                'scheduled_time': parsed_time['datetime'].isoformat()
+                'scheduled_time': dt_utc.isoformat()
             })
             
             if result.get('success'):
@@ -420,13 +422,13 @@ async def handle_advanced_reminder_saving(update, content_data: dict) -> None:
                 await update.message.reply_text(f"⏰ Reminder set for {formatted_time}!")
                 
                 # Schedule the actual notification
-                logger.info(f"🔍 DEBUG: About to schedule notification for {parsed_time['datetime']}")
+                logger.info(f"🔍 DEBUG: About to schedule notification for {dt_utc} (UTC)")
                 from core.notification_scheduler import schedule_reminder
                 success = await schedule_reminder(
                     user_id,
                     content_data.get('title', 'Reminder'),
                     content_data.get('content', ''),
-                    parsed_time['datetime']
+                    dt_utc
                 )
                 logger.info(f"🔍 DEBUG: Notification scheduling result: {success}")
             else:

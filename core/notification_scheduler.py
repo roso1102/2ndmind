@@ -121,6 +121,8 @@ class NotificationScheduler:
 
                 if ready:
                     logger.info(f"📬 Poller sending {len(ready)} due notifications")
+                else:
+                    logger.debug("⌛ Poller found no due notifications in window")
                 for n in ready:
                     try:
                         notif = NotificationTask(
@@ -133,6 +135,7 @@ class NotificationScheduler:
                             recurring_pattern=n.get('recurring_pattern'),
                             metadata=n.get('metadata') or {}
                         )
+                        logger.info(f"📤 Poller attempting send for notification {notif.id} (user {notif.user_id})")
                         await self._send_notification(notif)
                     except Exception as e:
                         logger.error(f"❌ Poller failed sending notification {n.get('id')}: {e}")
@@ -372,8 +375,14 @@ class NotificationScheduler:
                 response = await client.post(f"{api_url}/sendMessage", json=payload)
                 
                 if response.status_code == 200:
-                    logger.info(f"📤 Telegram message sent successfully to {chat_id}")
-                    return True
+                    data = response.json()
+                    ok = bool(data.get('ok'))
+                    if ok:
+                        logger.info(f"📤 Telegram message sent successfully to {chat_id}")
+                        return True
+                    else:
+                        logger.error(f"❌ Telegram API response not ok: {data}")
+                        return False
                 else:
                     logger.error(f"❌ Telegram API error: {response.status_code} - {response.text}")
                     return False
@@ -670,34 +679,12 @@ class NotificationScheduler:
             from core.supabase_rest import supabase_rest
             from datetime import datetime, timezone
             
-            # Get current time in UTC
-            now = datetime.now(timezone.utc)
-            
-            # Query for notifications that should be sent now
-            # Note: We get all pending and filter manually since our custom client doesn't have lte()
-            response = supabase_rest.table('notifications').select().eq('is_sent', False).eq('is_active', True).execute()
+            # Get all pending notifications (time filtering handled by poller)
+            response = supabase_rest.table('notifications').select().eq('is_sent', False).eq('is_active', True).order('scheduled_time').limit(200).execute()
             
             if response and response.get('error') is None and response.get('data'):
-                # Filter by time manually
-                filtered_notifications = []
-                for notification in response['data']:
-                    try:
-                        scheduled_time_str = notification.get('scheduled_time')
-                        if scheduled_time_str:
-                            from datetime import datetime
-                            scheduled_time = datetime.fromisoformat(scheduled_time_str.replace('Z', '+00:00'))
-                            if scheduled_time <= now:
-                                filtered_notifications.append(notification)
-                    except Exception as e:
-                        logger.warning(f"⚠️ Error parsing notification time: {e}")
-                        continue
-                
-                if filtered_notifications:
-                    logger.info(f"🔍 Found {len(filtered_notifications)} pending notifications (filtered from {len(response['data'])} total)")
-                    return filtered_notifications
-                else:
-                    logger.debug("🔍 No pending notifications ready to be sent")
-                    return []
+                logger.info(f"🔍 Found {len(response['data'])} pending active notifications")
+                return response['data']
             else:
                 logger.debug("🔍 No pending notifications found in database")
                 return []
