@@ -209,14 +209,11 @@ class NotificationScheduler:
     async def _send_notification(self, notification: NotificationTask):
         """Send a notification to the user."""
         try:
-            # Import here to avoid circular imports
-            from main import send_message
-            
             # Format the notification message
             formatted_message = await self._format_notification_message(notification)
             
-            # Send via Telegram
-            success = await send_message(notification.user_id, formatted_message)
+            # Send via Telegram directly (avoid circular import)
+            success = await self._send_telegram_message(notification.user_id, formatted_message)
             
             if success:
                 logger.info(f"✅ Sent {notification.notification_type} to user {notification.user_id}")
@@ -235,6 +232,40 @@ class NotificationScheduler:
                 
         except Exception as e:
             logger.error(f"Error sending notification: {e}")
+    
+    async def _send_telegram_message(self, chat_id: str, text: str, parse_mode: str = None) -> bool:
+        """Send a message to Telegram chat (avoiding circular import)."""
+        try:
+            import httpx
+            import os
+            
+            telegram_token = os.getenv('TELEGRAM_BOT_TOKEN')
+            if not telegram_token:
+                logger.error("❌ TELEGRAM_BOT_TOKEN not found")
+                return False
+            
+            api_url = f"https://api.telegram.org/bot{telegram_token}"
+            
+            async with httpx.AsyncClient() as client:
+                payload = {
+                    "chat_id": chat_id,
+                    "text": text
+                }
+                if parse_mode:
+                    payload["parse_mode"] = parse_mode
+                    
+                response = await client.post(f"{api_url}/sendMessage", json=payload)
+                
+                if response.status_code == 200:
+                    logger.info(f"📤 Telegram message sent successfully to {chat_id}")
+                    return True
+                else:
+                    logger.error(f"❌ Telegram API error: {response.status_code} - {response.text}")
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"❌ Error sending Telegram message: {e}")
+            return False
     
     async def _format_notification_message(self, notification: NotificationTask) -> str:
         """Format notification message based on type."""
@@ -257,19 +288,27 @@ class NotificationScheduler:
     async def _process_pending_notifications(self):
         """Process notifications that should be sent (backup for manual mode)."""
         try:
-            # This would query the database for pending notifications
-            # For now, just log that we're checking
-            logger.debug("🔍 Checking for pending notifications...")
+            logger.info("🔍 Checking for pending notifications...")
             
             # Get pending notifications from database
             pending = await self._get_pending_notifications()
             
+            if not pending:
+                logger.info("📭 No pending notifications to process")
+                return
+            
+            logger.info(f"📬 Processing {len(pending)} pending notifications")
+            
             for notification_data in pending:
-                notification = NotificationTask(**notification_data)
-                await self._send_notification(notification)
+                try:
+                    notification = NotificationTask(**notification_data)
+                    logger.info(f"📤 Sending notification {notification.id} to user {notification.user_id}")
+                    await self._send_notification(notification)
+                except Exception as e:
+                    logger.error(f"❌ Failed to process notification {notification_data.get('id', 'unknown')}: {e}")
                 
         except Exception as e:
-            logger.error(f"Error processing pending notifications: {e}")
+            logger.error(f"❌ Error processing pending notifications: {e}")
     
     async def _generate_morning_briefings(self):
         """Generate morning briefings for all active users."""
@@ -471,13 +510,61 @@ class NotificationScheduler:
     # Database interaction methods (to be implemented)
     async def _get_pending_notifications(self) -> List[Dict]:
         """Get pending notifications from database."""
-        # This would query the notifications table
-        return []
+        try:
+            from core.supabase_rest import supabase_client
+            from datetime import datetime, timezone
+            
+            # Get current time in UTC
+            now = datetime.now(timezone.utc)
+            
+            # Query for notifications that should be sent now
+            response = await supabase_client.execute(
+                'GET',
+                'notifications',
+                params={
+                    'scheduled_time': f'lte.{now.isoformat()}',
+                    'status': 'eq.pending',
+                    'select': '*'
+                }
+            )
+            
+            if response.get('success') and response.get('data'):
+                logger.info(f"🔍 Found {len(response['data'])} pending notifications")
+                return response['data']
+            else:
+                logger.debug("🔍 No pending notifications found")
+                return []
+                
+        except Exception as e:
+            logger.error(f"❌ Error getting pending notifications: {e}")
+            return []
     
     async def _mark_notification_sent(self, notification_id: str):
         """Mark notification as sent in database."""
-        # This would update the notifications table
-        pass
+        try:
+            from core.supabase_rest import supabase_client
+            from datetime import datetime, timezone
+            
+            # Update notification status to 'sent'
+            response = await supabase_client.execute(
+                'PATCH',
+                'notifications',
+                data={
+                    'status': 'sent',
+                    'sent_at': datetime.now(timezone.utc).isoformat()
+                },
+                params={
+                    'id': f'eq.{notification_id}'
+                }
+            )
+            
+            if response.get('success'):
+                logger.info(f"✅ Marked notification {notification_id} as sent")
+            else:
+                logger.error(f"❌ Failed to mark notification {notification_id} as sent")
+                
+        except Exception as e:
+            logger.error(f"❌ Error marking notification as sent: {e}")
     
     async def _get_users_with_morning_briefings(self) -> List[Dict]:
         """Get users who want morning briefings."""
