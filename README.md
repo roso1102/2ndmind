@@ -221,6 +221,16 @@ Natural language examples:
    - `TELEGRAM_TOKEN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `ENCRYPTION_MASTER_KEY`, `GROQ_API_KEY` (optional), `RENDER_EXTERNAL_URL`
 5) Deploy, then visit `{RENDER_EXTERNAL_URL}/reset-webhook` to register your webhook with Telegram.
 
+## 11) Simple Web Dashboard (no React)
+
+Open your dashboard (temporary auth via query param for testing):
+
+- URL: `/dashboard?user_id=YOUR_TELEGRAM_ID`
+- Tech: FastAPI + Jinja2 + HTMX (CDN) + Tailwind (CDN)
+- Features: latest items, sidebar filters (notes/tasks/links/reminders), search, create/delete
+
+This avoids heavy frontend builds and keeps memory low on Render free tier.
+
 
 ## 11) Project structure (high level)
 

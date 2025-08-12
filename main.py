@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 from contextlib import asynccontextmanager
+from fastapi import Request, Depends, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -74,6 +77,67 @@ async def lifespan(app: FastAPI):
         pass
 
 app = FastAPI(title="MySecondMind Bot", version="1.0.0", lifespan=lifespan)
+
+# Templates
+templates = Jinja2Templates(directory="templates")
+
+# --- Simple session helper (placeholder until Telegram Login wired) ---
+def get_current_user_id(request: Request) -> str:
+    # Temporary: allow user_id via query for quick testing; replace with Telegram auth cookie later
+    user_id = request.query_params.get("user_id")
+    return user_id or ""
+
+# --- Dashboard routes ---
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(request: Request, user_id: str = Depends(get_current_user_id)):
+    if not user_id:
+        return HTMLResponse("<p>Missing user_id. Append ?user_id=YOUR_TELEGRAM_ID temporarily.</p>", status_code=400)
+    return templates.TemplateResponse("dashboard.html", {"request": request, "user_id": user_id})
+
+@app.get("/partials/list", response_class=HTMLResponse)
+async def partial_list(request: Request, type: str = "all", q: str = "", user_id: str = Depends(get_current_user_id)):
+    from handlers.supabase_content import content_handler
+    if not user_id:
+        return HTMLResponse("<p>Missing user</p>", status_code=400)
+    if q:
+        data = await content_handler.search_content(user_id, q, limit=50)
+        items = data.get("results", []) if data.get("success") else []
+    elif type != "all":
+        data = await content_handler.get_user_content(user_id, content_type=type, limit=50)
+        items = data.get("content", []) if data.get("success") else []
+    else:
+        data = await content_handler.get_user_content(user_id, content_type=None, limit=50)
+        items = data.get("content", []) if data.get("success") else []
+    return templates.TemplateResponse("_list.html", {"request": request, "items": items})
+
+@app.post("/api/content", response_class=HTMLResponse)
+async def create_content(request: Request,
+                         ctype: str = Form(...),
+                         title: str = Form(""),
+                         content: str = Form(""),
+                         url: str = Form(""),
+                         user_id: str = Depends(get_current_user_id)):
+    from handlers.supabase_content import content_handler
+    if not user_id:
+        return HTMLResponse("<p>Missing user</p>", status_code=400)
+    if ctype == "note":
+        await content_handler.save_note(user_id, content or title, {"confidence": 0.99, "reasoning": "dashboard"})
+    elif ctype == "task":
+        await content_handler.save_task(user_id, content or title, {"confidence": 0.99, "reasoning": "dashboard"})
+    elif ctype == "link":
+        await content_handler.save_link(user_id, url, content, {"confidence": 0.99, "reasoning": "dashboard"})
+    elif ctype == "reminder":
+        await content_handler.save_reminder(user_id, content or title, {"confidence": 0.99, "reasoning": "dashboard"})
+    # Return refreshed list
+    return RedirectResponse(url=f"/dashboard?user_id={user_id}", status_code=303)
+
+@app.post("/api/content/{item_id}/delete", response_class=HTMLResponse)
+async def delete_content_route(request: Request, item_id: str, user_id: str = Depends(get_current_user_id)):
+    from handlers.supabase_content import content_handler
+    if not user_id:
+        return HTMLResponse("<p>Missing user</p>", status_code=400)
+    await content_handler.delete_content(user_id, item_id)
+    return HTMLResponse("Deleted", status_code=200)
 
 # Get configuration
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_TOKEN')

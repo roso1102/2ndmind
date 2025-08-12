@@ -1,0 +1,31 @@
+{% macro icon(item) -%}
+  {% set t = item.get('content_type','') %}
+  {% if t == 'note' %}📝{% elif t == 'task' %}📋{% elif t == 'link' %}🔗{% elif t == 'reminder' %}⏰{% else %}📄{% endif %}
+{%- endmacro %}
+
+<div class="grid grid-cols-1 gap-3">
+  {% if items and items|length > 0 %}
+    {% for item in items %}
+      <div class="bg-white border rounded p-4 flex items-start justify-between">
+        <div class="pr-4">
+          <div class="font-medium">
+            {{ icon(item) }} {{ item.get('title','Untitled') }}
+          </div>
+          {% if item.get('url') %}
+            <div class="text-sm text-blue-700 break-all">{{ item.get('url') }}</div>
+          {% endif %}
+          <div class="text-sm text-gray-600 mt-1">
+            {{ (item.get('content','') or '')[:180] }}{% if item.get('content') and item.get('content')|length > 180 %}...{% endif %}
+          </div>
+          <div class="text-xs text-gray-400 mt-1">{{ item.get('created_at','')[:19].replace('T',' ') }}</div>
+        </div>
+        <form hx-post="/api/content/{{ item.get('id') }}/delete" hx-confirm="Delete this item?" hx-target="closest .bg-white" hx-swap="outerHTML">
+          <button class="text-red-600 hover:underline">Delete</button>
+        </form>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="text-gray-500">No items found.</div>
+  {% endif %}
+</div>
+
