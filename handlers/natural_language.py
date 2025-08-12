@@ -47,6 +47,83 @@ def extract_search_term(message: str) -> Optional[str]:
     
     return None
 
+# --- Deterministic pre-classifier (runs before AI) ---
+def pre_classify_message(message: str) -> Optional[Dict]:
+    """Lightweight, deterministic detection of links, reminders, tasks, notes.
+    Returns a dict with keys: type, title, content, url, time, confidence.
+    """
+    if not message:
+        return None
+
+    msg = message.strip()
+    lower = msg.lower()
+
+    # Detect URL
+    url_match = re.search(r'https?://\S+', msg)
+    if url_match:
+        url = url_match.group(0)
+        context = msg.replace(url, '').strip()
+        return {
+            'type': 'link',
+            'title': context or url,
+            'content': context,
+            'url': url,
+            'confidence': 0.95
+        }
+
+    # Detect reminder phrases
+    reminder_triggers = ['remind me', 'reminder', 'alert me', 'notify me']
+    time_patterns = [
+        r'in\s+\d+\s+(minute|minutes|hour|hours)',
+        r'at\s+\d{1,2}:\d{2}(\s*(am|pm))?',
+        r'(tomorrow|today|tonight|next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday))',
+    ]
+    if any(t in lower for t in reminder_triggers) or any(re.search(p, lower) for p in time_patterns):
+        time_text = None
+        for p in time_patterns:
+            m = re.search(p, lower)
+            if m:
+                time_text = m.group(0)
+                break
+        if not time_text:
+            m = re.search(r'in\s+(\d+)\b', lower)
+            if m:
+                time_text = f"in {m.group(1)} minutes"
+        # Extract title after "remind me to"
+        title = msg
+        m2 = re.search(r'remind\s+me\s+(to\s+)?(.+)', lower)
+        if m2 and m2.group(2):
+            start = lower.find(m2.group(2))
+            if start >= 0:
+                title = msg[start:].strip()
+        return {
+            'type': 'reminder',
+            'title': title,
+            'content': title,
+            'time': time_text,
+            'confidence': 0.85
+        }
+
+    # Detect tasks
+    task_keywords = ['todo', 'task', 'need to', 'should', 'must', 'complete', 'finish']
+    if any(k in lower for k in task_keywords):
+        return {
+            'type': 'task',
+            'title': msg,
+            'content': msg,
+            'confidence': 0.8
+        }
+
+    # Default to note for sentence-like
+    if len(msg.split()) >= 3:
+        return {
+            'type': 'note',
+            'title': msg[:60],
+            'content': msg,
+            'confidence': 0.6
+        }
+    return None
+
 try:
     from groq import Groq
     GROQ_AVAILABLE = True
@@ -254,6 +331,40 @@ async def process_natural_message(update, context=None) -> None:
     logger.info(f"🧠 Processing with Advanced AI - user {user_id}: '{user_message[:50]}...'")
     
     try:
+        # Deterministic pre-classification first
+        pre = pre_classify_message(user_message)
+        if pre:
+            logger.info(f"🔎 Pre-classified message as {pre['type']} with confidence {pre['confidence']}")
+            ctype = pre['type']
+            if ctype == 'link':
+                from handlers.supabase_content import content_handler
+                result = await content_handler.save_link(user_id, pre['url'], pre.get('content',''), {'confidence': pre['confidence'], 'reasoning': 'pre-classifier'})
+                if result.get('success'):
+                    await update.message.reply_text(f"✅ Saved link: {result.get('title', 'Untitled')}")
+                    return
+            elif ctype == 'reminder' and pre.get('time'):
+                # Build content_data for advanced reminder saver
+                content_data = {
+                    'type': 'reminder',
+                    'title': pre.get('title', user_message),
+                    'content': pre.get('content', user_message),
+                    'time': pre.get('time')
+                }
+                await handle_advanced_reminder_saving(update, content_data)
+                return
+            elif ctype == 'task':
+                from handlers.supabase_content import content_handler
+                result = await content_handler.save_task(user_id, pre['content'], {'confidence': pre['confidence'], 'reasoning': 'pre-classifier'})
+                if result.get('success'):
+                    await update.message.reply_text(f"✅ Saved task: {result.get('title', 'Untitled')}")
+                    return
+            elif ctype == 'note':
+                from handlers.supabase_content import content_handler
+                result = await content_handler.save_note(user_id, pre['content'], {'confidence': pre['confidence'], 'reasoning': 'pre-classifier'})
+                if result.get('success'):
+                    await update.message.reply_text(f"✅ Saved note: {result.get('title', 'Untitled')}")
+                    return
+
         # First check if it's a content management command (delete, complete, edit)
         if content_manager.is_management_command(user_message):
             result = await content_manager.handle_management_command(user_id, user_message)
