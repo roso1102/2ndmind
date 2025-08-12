@@ -23,7 +23,57 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
-app = FastAPI(title="MySecondMind Bot", version="1.0.0")
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    # Log initial memory usage
+    try:
+        from core.enhanced_semantic import log_memory_usage
+        log_memory_usage("startup")
+    except ImportError:
+        pass
+
+    # Configure webhook
+    if TELEGRAM_BOT_TOKEN:
+        webhook_url = f"{WEBHOOK_URL}/webhook"
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(f"{API_URL}/setWebhook", json={
+                    "url": webhook_url
+                })
+                result = response.json()
+                if result.get("ok"):
+                    log(f"✅ Webhook set successfully: {webhook_url}")
+                else:
+                    log(f"❌ Failed to set webhook: {result}", level="ERROR")
+        except Exception as e:
+            log(f"Error setting webhook: {e}", level="ERROR")
+
+    # Start background poller and init scheduler
+    try:
+        from core.notification_scheduler import get_notification_scheduler
+        scheduler = get_notification_scheduler()
+        import asyncio as _asyncio
+        _asyncio.create_task(scheduler.run_background_poller(poll_interval_seconds=15, grace_seconds=30))
+        await scheduler._ensure_scheduler_initialized()
+        log("🛎️ Background notification poller started (15s interval, 30s grace)")
+    except Exception as e:
+        log(f"⚠️ Failed to start background poller/scheduler: {e}", level="WARNING")
+
+    log("🚀 MySecondMind bot started successfully!")
+    log(f"💚 Health endpoints: {WEBHOOK_URL}/, {WEBHOOK_URL}/health, {WEBHOOK_URL}/ping")
+
+    yield
+
+    # Shutdown
+    try:
+        log("🛑 Shutting down MySecondMind bot...")
+    except Exception:
+        pass
+
+app = FastAPI(title="MySecondMind Bot", version="1.0.0", lifespan=lifespan)
 
 # Get configuration
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -826,46 +876,7 @@ Just talk to me naturally! I understand:
     # Always return success to Telegram
     return {"ok": True}
 
-# --- Startup event ---
-@app.on_event("startup")
-async def startup_event():
-    """Set up webhook on startup and start background poller"""
-    # Log initial memory usage
-    try:
-        from core.enhanced_semantic import log_memory_usage
-        log_memory_usage("startup")
-    except ImportError:
-        pass
-    
-    if TELEGRAM_BOT_TOKEN:
-        webhook_url = f"{WEBHOOK_URL}/webhook"
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(f"{API_URL}/setWebhook", json={
-                    "url": webhook_url
-                })
-                result = response.json()
-                if result.get("ok"):
-                    log(f"✅ Webhook set successfully: {webhook_url}")
-                else:
-                    log(f"❌ Failed to set webhook: {result}", level="ERROR")
-        except Exception as e:
-            log(f"Error setting webhook: {e}", level="ERROR")
-    
-    log("🚀 MySecondMind bot started successfully!")
-    log(f"💚 Health endpoints: {WEBHOOK_URL}/, {WEBHOOK_URL}/health, {WEBHOOK_URL}/ping")
-
-    # Start background notification poller (runs inside FastAPI event loop)
-    try:
-        from core.notification_scheduler import get_notification_scheduler
-        scheduler = get_notification_scheduler()
-        import asyncio as _asyncio
-        _asyncio.create_task(scheduler.run_background_poller(poll_interval_seconds=15, grace_seconds=30))
-        log("🛎️ Background notification poller started (15s interval, 30s grace)")
-        # Also try initializing APScheduler now that loop exists (optional)
-        await scheduler._ensure_scheduler_initialized()
-    except Exception as e:
-        log(f"⚠️ Failed to start background poller/scheduler: {e}", level="WARNING")
+# (deprecated startup event removed in favor of lifespan)
 
 if __name__ == "__main__":
     import uvicorn
