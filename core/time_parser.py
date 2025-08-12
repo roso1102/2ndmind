@@ -67,7 +67,15 @@ class TimeParser:
         Returns:
             Dict with parsed time information or None if parsing failed
         """
-        if not time_str or not time_str.strip():
+        # Normalize input to string safely
+        if time_str is None:
+            return None
+        if not isinstance(time_str, str):
+            try:
+                time_str = str(time_str)
+            except Exception:
+                return None
+        if not time_str.strip():
             return None
         
         time_str = time_str.strip().lower()

@@ -367,10 +367,22 @@ async def handle_advanced_reminder_saving(update, content_data: dict) -> None:
         # Debug: Log the content_data to see what the AI extracted
         logger.info(f"🔍 DEBUG: Advanced AI reminder data: {content_data}")
         
-        # Check if time is specified
-        time_str = content_data.get('time')
-        logger.info(f"🔍 DEBUG: Extracted time string: '{time_str}'")
-        
+        # Check if time is specified and normalize type (AI may pass number)
+        raw_time = content_data.get('time')
+        logger.info(f"🔍 DEBUG: Extracted time raw: '{raw_time}' ({type(raw_time)})")
+
+        time_str = None
+        if raw_time is None or raw_time == "":
+            time_str = None
+        elif isinstance(raw_time, (int, float)):
+            # Assume minutes for bare numbers, e.g., 2 -> "in 2 minutes"
+            minutes_val = int(raw_time)
+            time_str = f"in {minutes_val} minutes"
+        else:
+            time_str = str(raw_time)
+
+        logger.info(f"🔍 DEBUG: Normalized time string: '{time_str}'")
+
         if not time_str:
             # Ask for time
             await update.message.reply_text(
