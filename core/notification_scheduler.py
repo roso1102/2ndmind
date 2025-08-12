@@ -90,7 +90,7 @@ class NotificationScheduler:
                 now = datetime.now(timezone.utc)
                 cutoff = now + timedelta(seconds=grace_seconds)
 
-            pending = await self._get_pending_notifications()
+                pending = await self._get_pending_notifications()
                 # Filter by time window and optionally set precise timers
                 ready: List[Dict] = []
                 for n in pending:

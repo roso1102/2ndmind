@@ -850,9 +850,9 @@ async def handle_link_intent(update, context, message: str, classification: Dict
     confidence = classification['confidence']
     user_id = str(update.effective_user.id)
     
-    # Extract URL if present
+    # Extract URL if present (preserve full URL including query params)
     import re
-    url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+    url_pattern = r'https?://\S+'
     urls = re.findall(url_pattern, message)
     
     if urls:
