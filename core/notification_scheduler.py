@@ -528,7 +528,8 @@ class NotificationScheduler:
                 'message': notification.message,
                 'notification_type': notification.notification_type,
                 'scheduled_time': notification.scheduled_time.isoformat(),
-                'status': 'pending',
+                'is_sent': False,
+                'is_active': True,
                 'recurring_pattern': notification.recurring_pattern,
                 'metadata': notification.metadata or {},
                 'created_at': datetime.now(timezone.utc).isoformat()
@@ -558,7 +559,7 @@ class NotificationScheduler:
             
             # Query for notifications that should be sent now
             # Note: We get all pending and filter manually since our custom client doesn't have lte()
-            response = supabase_rest.table('notifications').select().eq('status', 'pending').execute()
+            response = supabase_rest.table('notifications').select().eq('is_sent', False).eq('is_active', True).execute()
             
             if response.get('success') and response.get('data'):
                 # Filter by time manually
@@ -597,7 +598,7 @@ class NotificationScheduler:
             
             # Update notification status to 'sent'
             response = supabase_rest.table('notifications').update({
-                'status': 'sent',
+                'is_sent': True,
                 'sent_at': datetime.now(timezone.utc).isoformat()
             }).eq('id', notification_id).execute()
             
