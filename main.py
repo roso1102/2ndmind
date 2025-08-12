@@ -98,6 +98,15 @@ async def dashboard(request: Request, user_id: str = Depends(get_current_user_id
 async def partial_list(request: Request, type: str = "all", q: str = "", user_id: str = Depends(get_current_user_id)):
     from handlers.supabase_content import content_handler
     if not user_id:
+        # Try to read from referer query (htmx requests may lose query params)
+        ref = request.headers.get("referer", "")
+        import urllib.parse as _up
+        try:
+            qs = _up.urlparse(ref).query
+            user_id = _up.parse_qs(qs).get("user_id", [""])[0]
+        except Exception:
+            user_id = ""
+    if not user_id:
         return HTMLResponse("<p>Missing user</p>", status_code=400)
     if q:
         data = await content_handler.search_content(user_id, q, limit=50)

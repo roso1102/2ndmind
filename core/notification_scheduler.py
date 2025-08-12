@@ -197,13 +197,8 @@ class NotificationScheduler:
             return
         
         try:
-            # Check for pending notifications every minute
-            self.scheduler.add_job(
-                self._process_pending_notifications,
-                IntervalTrigger(minutes=1),
-                id='process_notifications',
-                max_instances=1
-            )
+            # Disabled: periodic pending processor to avoid early sends.
+            # If re-enabled, ensure due-only guard inside the method.
             
             # Generate morning briefings at 8 AM daily
             self.scheduler.add_job(
@@ -417,6 +412,7 @@ class NotificationScheduler:
             
             # Get pending notifications from database
             pending = await self._get_pending_notifications()
+            now = datetime.now(timezone.utc)
             
             if not pending:
                 logger.info("📭 No pending notifications to process")
@@ -431,7 +427,10 @@ class NotificationScheduler:
                     try:
                         scheduled_dt = raw_dt if isinstance(raw_dt, datetime) else datetime.fromisoformat(str(raw_dt).replace('Z', '+00:00'))
                     except Exception:
-                        scheduled_dt = datetime.now(timezone.utc)
+                        scheduled_dt = now
+                    # Guard: only send when due
+                    if scheduled_dt > now:
+                        continue
 
                     notification = NotificationTask(
                         id=str(notification_data.get('id')),
