@@ -426,7 +426,23 @@ class NotificationScheduler:
             
             for notification_data in pending:
                 try:
-                    notification = NotificationTask(**notification_data)
+                    # Map only known fields to avoid unexpected kwargs like content_id
+                    raw_dt = notification_data.get('scheduled_time')
+                    try:
+                        scheduled_dt = raw_dt if isinstance(raw_dt, datetime) else datetime.fromisoformat(str(raw_dt).replace('Z', '+00:00'))
+                    except Exception:
+                        scheduled_dt = datetime.now(timezone.utc)
+
+                    notification = NotificationTask(
+                        id=str(notification_data.get('id')),
+                        user_id=str(notification_data.get('user_id')),
+                        title=notification_data.get('title', 'Reminder'),
+                        message=notification_data.get('message', ''),
+                        notification_type=notification_data.get('notification_type', 'reminder'),
+                        scheduled_time=scheduled_dt,
+                        recurring_pattern=notification_data.get('recurring_pattern'),
+                        metadata=notification_data.get('metadata') or {}
+                    )
                     logger.info(f"📤 Sending notification {notification.id} to user {notification.user_id}")
                     await self._send_notification(notification)
                 except Exception as e:
