@@ -79,7 +79,7 @@ class NotificationScheduler:
         else:
             logger.warning("⚠️ Scheduler not available. Notifications will be processed manually.")
 
-    async def run_background_poller(self, poll_interval_seconds: int = 15, grace_seconds: int = 30):
+    async def run_background_poller(self, poll_interval_seconds: int = 15, grace_seconds: int = 60):
         """Run a lightweight background poller inside FastAPI's event loop.
         - Polls DB periodically for due notifications (<= now + grace)
         - Sends them via Telegram and marks as sent
@@ -120,7 +120,7 @@ class NotificationScheduler:
                         logger.warning(f"⚠️ Poller time parse error: {e}")
 
                 if ready:
-                    logger.info(f"📬 Poller sending {len(ready)} due notifications")
+                    logger.info(f"📬 Poller sending {len(ready)} due notifications (now={now.isoformat()})")
                 else:
                     logger.debug("⌛ Poller found no due notifications in window")
                 for n in ready:
