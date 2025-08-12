@@ -855,6 +855,16 @@ async def startup_event():
     log("🚀 MySecondMind bot started successfully!")
     log(f"💚 Health endpoints: {WEBHOOK_URL}/, {WEBHOOK_URL}/health, {WEBHOOK_URL}/ping")
 
+    # Start background notification poller (runs inside FastAPI event loop)
+    try:
+        from core.notification_scheduler import get_notification_scheduler
+        scheduler = get_notification_scheduler()
+        import asyncio as _asyncio
+        _asyncio.create_task(scheduler.run_background_poller(poll_interval_seconds=15, grace_seconds=30))
+        log("🛎️ Background notification poller started (15s interval, 30s grace)")
+    except Exception as e:
+        log(f"⚠️ Failed to start background poller: {e}", level="WARNING")
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv('PORT', 10000))

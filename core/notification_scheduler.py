@@ -56,6 +56,8 @@ class NotificationScheduler:
         self.scheduler = None
         self.active_jobs = {}  # job_id -> job info
         self.weather_api_key = os.getenv('WEATHER_API_KEY')
+        # In-memory precise timers for near-term notifications
+        self._in_memory_timers: Dict[str, asyncio.Task] = {}
         
         # Initialize scheduler if available
         if SCHEDULER_AVAILABLE:
@@ -80,6 +82,92 @@ class NotificationScheduler:
                 self.scheduler = None
         else:
             logger.warning("⚠️ Scheduler not available. Notifications will be processed manually.")
+
+    async def run_background_poller(self, poll_interval_seconds: int = 15, grace_seconds: int = 30):
+        """Run a lightweight background poller inside FastAPI's event loop.
+        - Polls DB periodically for due notifications (<= now + grace)
+        - Sends them via Telegram and marks as sent
+        """
+        logger.info(f"🛎️ Starting background poller (interval={poll_interval_seconds}s, grace={grace_seconds}s)")
+        while True:
+            try:
+                now = datetime.now(timezone.utc)
+                cutoff = now + timedelta(seconds=grace_seconds)
+
+                pending = await self._get_pending_notifications()
+                # Filter by time window and optionally set precise timers
+                ready: List[Dict] = []
+                for n in pending:
+                    try:
+                        ts = n.get('scheduled_time')
+                        if not ts:
+                            continue
+                        scheduled_dt = datetime.fromisoformat(str(ts).replace('Z', '+00:00'))
+                        if scheduled_dt <= cutoff:
+                            ready.append(n)
+                        else:
+                            # Schedule precise near-term timer for better accuracy (<= 120s)
+                            dt_seconds = (scheduled_dt - now).total_seconds()
+                            if 0 < dt_seconds <= 120:
+                                notif = NotificationTask(
+                                    id=str(n['id']),
+                                    user_id=str(n['user_id']),
+                                    title=n.get('title', 'Reminder'),
+                                    message=n.get('message', ''),
+                                    notification_type=n.get('notification_type', 'reminder'),
+                                    scheduled_time=scheduled_dt,
+                                    recurring_pattern=n.get('recurring_pattern'),
+                                    metadata=n.get('metadata') or {}
+                                )
+                                await self._ensure_precise_timer(notif, dt_seconds)
+                    except Exception as e:
+                        logger.warning(f"⚠️ Poller time parse error: {e}")
+
+                if ready:
+                    logger.info(f"📬 Poller sending {len(ready)} due notifications")
+                for n in ready:
+                    try:
+                        notif = NotificationTask(
+                            id=str(n['id']),
+                            user_id=str(n['user_id']),
+                            title=n.get('title', 'Reminder'),
+                            message=n.get('message', ''),
+                            notification_type=n.get('notification_type', 'reminder'),
+                            scheduled_time=datetime.fromisoformat(str(n['scheduled_time']).replace('Z', '+00:00')),
+                            recurring_pattern=n.get('recurring_pattern'),
+                            metadata=n.get('metadata') or {}
+                        )
+                        await self._send_notification(notif)
+                    except Exception as e:
+                        logger.error(f"❌ Poller failed sending notification {n.get('id')}: {e}")
+
+            except Exception as loop_err:
+                logger.error(f"❌ Background poller loop error: {loop_err}")
+            finally:
+                await asyncio.sleep(max(1, poll_interval_seconds))
+
+    async def _ensure_precise_timer(self, notification: NotificationTask, seconds_until_fire: float):
+        """Create an in-memory precise timer for near-term notifications (<= 120s)."""
+        if notification.id in self._in_memory_timers:
+            return
+        async def _fire():
+            try:
+                await asyncio.sleep(max(0.0, seconds_until_fire))
+                # Double-check not already sent in DB
+                try:
+                    from core.supabase_rest import supabase_rest
+                    res = supabase_rest.table('notifications').select().eq('id', notification.id).execute()
+                    if res and res.get('error') is None and res.get('data'):
+                        row = res['data'][0]
+                        if row.get('is_sent') is True:
+                            return
+                except Exception:
+                    pass
+                await self._send_notification(notification)
+            finally:
+                self._in_memory_timers.pop(notification.id, None)
+        task = asyncio.create_task(_fire())
+        self._in_memory_timers[notification.id] = task
     
     async def _ensure_scheduler_initialized(self):
         """Ensure scheduler is initialized (for async contexts)."""
@@ -198,7 +286,16 @@ class NotificationScheduler:
                 logger.warning(f"⚠️ APScheduler failed, but notification saved to DB: {e}")
         else:
             logger.info(f"📝 Notification saved to database for manual processing (APScheduler unavailable)")
-        
+
+        # Optional: precise near-term timer for sub-minute accuracy
+        try:
+            now = datetime.now(timezone.utc)
+            delta = (notification.scheduled_time - now).total_seconds()
+            if 0 < delta <= 120:
+                await self._ensure_precise_timer(notification, delta)
+        except Exception as e:
+            logger.warning(f"⚠️ Could not set precise timer: {e}")
+
         return True
     
     def _create_recurring_trigger(self, base_time: datetime, pattern: str):
@@ -582,7 +679,7 @@ class NotificationScheduler:
             # Note: We get all pending and filter manually since our custom client doesn't have lte()
             response = supabase_rest.table('notifications').select().eq('is_sent', False).eq('is_active', True).execute()
             
-            if response.get('success') and response.get('data'):
+            if response and response.get('error') is None and response.get('data'):
                 # Filter by time manually
                 filtered_notifications = []
                 for notification in response['data']:
@@ -623,7 +720,7 @@ class NotificationScheduler:
                 'sent_at': datetime.now(timezone.utc).isoformat()
             }).eq('id', notification_id).execute()
             
-            if response.get('success'):
+            if response and response.get('error') is None:
                 logger.info(f"✅ Marked notification {notification_id} as sent")
             else:
                 logger.error(f"❌ Failed to mark notification {notification_id} as sent")
