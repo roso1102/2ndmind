@@ -511,14 +511,14 @@ class NotificationScheduler:
     async def _get_pending_notifications(self) -> List[Dict]:
         """Get pending notifications from database."""
         try:
-            from core.supabase_rest import supabase_client
+            from core.supabase_rest import supabase_rest
             from datetime import datetime, timezone
             
             # Get current time in UTC
             now = datetime.now(timezone.utc)
             
             # Query for notifications that should be sent now
-            response = await supabase_client.execute(
+            response = await supabase_rest.execute(
                 'GET',
                 'notifications',
                 params={
@@ -542,11 +542,11 @@ class NotificationScheduler:
     async def _mark_notification_sent(self, notification_id: str):
         """Mark notification as sent in database."""
         try:
-            from core.supabase_rest import supabase_client
+            from core.supabase_rest import supabase_rest
             from datetime import datetime, timezone
             
             # Update notification status to 'sent'
-            response = await supabase_client.execute(
+            response = await supabase_rest.execute(
                 'PATCH',
                 'notifications',
                 data={
