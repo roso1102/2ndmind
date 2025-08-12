@@ -389,8 +389,15 @@ async def add_command(update, context) -> None:
         elif kind == 'task':
             result = await content_handler.save_task(user_id, text, classification)
         elif kind == 'link':
-            # try to detect url if user put context first by mistake
-            result = await content_handler.save_link(user_id, text.split()[0], " ".join(text.split()[1:]), classification)
+            # Detect URL robustly and preserve full URL
+            import re
+            url_match = re.search(r'https?://\S+', text)
+            if not url_match:
+                await update.message.reply_text("❌ Please include a valid URL after /add link")
+                return
+            url = url_match.group(0)
+            context_after = (text.replace(url, "").strip())
+            result = await content_handler.save_link(user_id, url, context_after, classification)
         elif kind == 'reminder':
             result = await content_handler.save_reminder(user_id, text, classification)
         else:

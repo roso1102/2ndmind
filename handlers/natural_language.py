@@ -58,7 +58,7 @@ def pre_classify_message(message: str) -> Optional[Dict]:
     msg = message.strip()
     lower = msg.lower()
 
-    # Detect URL
+    # Detect URL (preserve full URL string)
     url_match = re.search(r'https?://\S+', msg)
     if url_match:
         url = url_match.group(0)

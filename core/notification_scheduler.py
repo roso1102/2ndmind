@@ -90,7 +90,7 @@ class NotificationScheduler:
                 now = datetime.now(timezone.utc)
                 cutoff = now + timedelta(seconds=grace_seconds)
 
-                pending = await self._get_pending_notifications()
+            pending = await self._get_pending_notifications()
                 # Filter by time window and optionally set precise timers
                 ready: List[Dict] = []
                 for n in pending:
@@ -106,8 +106,8 @@ class NotificationScheduler:
                             dt_seconds = (scheduled_dt - now).total_seconds()
                             if 0 < dt_seconds <= 120:
                                 notif = NotificationTask(
-                                    id=str(n['id']),
-                                    user_id=str(n['user_id']),
+                                    id=str(n.get('id')),
+                                    user_id=str(n.get('user_id')),
                                     title=n.get('title', 'Reminder'),
                                     message=n.get('message', ''),
                                     notification_type=n.get('notification_type', 'reminder'),
@@ -126,12 +126,12 @@ class NotificationScheduler:
                 for n in ready:
                     try:
                         notif = NotificationTask(
-                            id=str(n['id']),
-                            user_id=str(n['user_id']),
+                            id=str(n.get('id')),
+                            user_id=str(n.get('user_id')),
                             title=n.get('title', 'Reminder'),
                             message=n.get('message', ''),
                             notification_type=n.get('notification_type', 'reminder'),
-                            scheduled_time=datetime.fromisoformat(str(n['scheduled_time']).replace('Z', '+00:00')),
+                            scheduled_time=datetime.fromisoformat(str(n.get('scheduled_time')).replace('Z', '+00:00')),
                             recurring_pattern=n.get('recurring_pattern'),
                             metadata=n.get('metadata') or {}
                         )
