@@ -142,10 +142,13 @@ class NotificationScheduler:
     async def schedule_notification(self, notification: NotificationTask) -> bool:
         """Schedule a notification."""
         # CRITICAL: Always save to database first for persistence
+        logger.info(f"🔍 DEBUG: Attempting to save notification {notification.id} to database")
         db_saved = await self._save_notification_to_db(notification)
         if not db_saved:
-            logger.error(f"❌ Failed to save notification {notification.id} to database")
+            logger.error(f"❌ Failed to save notification {notification.id} to database - aborting")
             return False
+        
+        logger.info(f"✅ Successfully saved notification {notification.id} to database")
         
         # Ensure scheduler is initialized
         await self._ensure_scheduler_initialized()
@@ -521,6 +524,9 @@ class NotificationScheduler:
             from core.supabase_rest import supabase_rest
             from datetime import datetime, timezone
             
+            # Debug: Check if supabase_rest is properly initialized
+            logger.info(f"🔍 DEBUG: Supabase client ready: {supabase_rest.ready}")
+            
             notification_data = {
                 'id': notification.id,
                 'user_id': notification.user_id,
@@ -537,11 +543,15 @@ class NotificationScheduler:
             
             response = supabase_rest.table('notifications').insert(notification_data).execute()
             
-            if response.get('success'):
+            # Debug: Log the full response to see what's happening
+            logger.info(f"🔍 DEBUG: Supabase response: {response}")
+            
+            if response and response.get('success'):
                 logger.info(f"💾 Saved notification {notification.id} to database")
                 return True
             else:
-                logger.error(f"❌ Failed to save notification to database: {response.get('error', 'Unknown error')}")
+                error_msg = response.get('error', 'Unknown error') if response else 'Response is None'
+                logger.error(f"❌ Failed to save notification to database: {error_msg}")
                 return False
                 
         except Exception as e:
