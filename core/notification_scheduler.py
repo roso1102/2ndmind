@@ -141,45 +141,52 @@ class NotificationScheduler:
     
     async def schedule_notification(self, notification: NotificationTask) -> bool:
         """Schedule a notification."""
+        # CRITICAL: Always save to database first for persistence
+        db_saved = await self._save_notification_to_db(notification)
+        if not db_saved:
+            logger.error(f"❌ Failed to save notification {notification.id} to database")
+            return False
+        
         # Ensure scheduler is initialized
         await self._ensure_scheduler_initialized()
         
-        if not self.scheduler:
-            return await self._manual_schedule(notification)
+        # Try to schedule in APScheduler as backup/optimization
+        if self.scheduler:
+            try:
+                job_id = f"notification_{notification.id}"
+                
+                # Create trigger based on notification type
+                if notification.recurring_pattern:
+                    trigger = self._create_recurring_trigger(notification.scheduled_time, notification.recurring_pattern)
+                else:
+                    trigger = DateTrigger(run_date=notification.scheduled_time)
+                
+                # Schedule the job
+                self.scheduler.add_job(
+                    self._send_notification,
+                    trigger,
+                    args=[notification],
+                    id=job_id,
+                    max_instances=1,
+                    replace_existing=True
+                )
+                
+                # Store job info
+                self.active_jobs[job_id] = {
+                    'notification_id': notification.id,
+                    'user_id': notification.user_id,
+                    'type': notification.notification_type,
+                    'scheduled_time': notification.scheduled_time
+                }
+                
+                logger.info(f"📅 Scheduled {notification.notification_type} for user {notification.user_id} at {notification.scheduled_time} (DB + APScheduler)")
+                
+            except Exception as e:
+                logger.warning(f"⚠️ APScheduler failed, but notification saved to DB: {e}")
+        else:
+            logger.info(f"📝 Notification saved to database for manual processing (APScheduler unavailable)")
         
-        try:
-            job_id = f"notification_{notification.id}"
-            
-            # Create trigger based on notification type
-            if notification.recurring_pattern:
-                trigger = self._create_recurring_trigger(notification.scheduled_time, notification.recurring_pattern)
-            else:
-                trigger = DateTrigger(run_date=notification.scheduled_time)
-            
-            # Schedule the job
-            self.scheduler.add_job(
-                self._send_notification,
-                trigger,
-                args=[notification],
-                id=job_id,
-                max_instances=1,
-                replace_existing=True
-            )
-            
-            # Store job info
-            self.active_jobs[job_id] = {
-                'notification_id': notification.id,
-                'user_id': notification.user_id,
-                'type': notification.notification_type,
-                'scheduled_time': notification.scheduled_time
-            }
-            
-            logger.info(f"📅 Scheduled {notification.notification_type} for user {notification.user_id} at {notification.scheduled_time}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error scheduling notification: {e}")
-            return False
+        return True
     
     def _create_recurring_trigger(self, base_time: datetime, pattern: str):
         """Create recurring trigger based on pattern."""
@@ -507,7 +514,39 @@ class NotificationScheduler:
         
         return message
     
-    # Database interaction methods (to be implemented)
+    # Database interaction methods
+    async def _save_notification_to_db(self, notification: NotificationTask) -> bool:
+        """Save notification to database for persistence."""
+        try:
+            from core.supabase_rest import supabase_rest
+            from datetime import datetime, timezone
+            
+            notification_data = {
+                'id': notification.id,
+                'user_id': notification.user_id,
+                'title': notification.title,
+                'message': notification.message,
+                'notification_type': notification.notification_type,
+                'scheduled_time': notification.scheduled_time.isoformat(),
+                'status': 'pending',
+                'recurring_pattern': notification.recurring_pattern,
+                'metadata': notification.metadata or {},
+                'created_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            response = supabase_rest.table('notifications').insert(notification_data).execute()
+            
+            if response.get('success'):
+                logger.info(f"💾 Saved notification {notification.id} to database")
+                return True
+            else:
+                logger.error(f"❌ Failed to save notification to database: {response.get('error', 'Unknown error')}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Error saving notification to database: {e}")
+            return False
+    
     async def _get_pending_notifications(self) -> List[Dict]:
         """Get pending notifications from database."""
         try:
@@ -518,13 +557,32 @@ class NotificationScheduler:
             now = datetime.now(timezone.utc)
             
             # Query for notifications that should be sent now
+            # Note: We get all pending and filter manually since our custom client doesn't have lte()
             response = supabase_rest.table('notifications').select().eq('status', 'pending').execute()
             
             if response.get('success') and response.get('data'):
-                logger.info(f"🔍 Found {len(response['data'])} pending notifications")
-                return response['data']
+                # Filter by time manually
+                filtered_notifications = []
+                for notification in response['data']:
+                    try:
+                        scheduled_time_str = notification.get('scheduled_time')
+                        if scheduled_time_str:
+                            from datetime import datetime
+                            scheduled_time = datetime.fromisoformat(scheduled_time_str.replace('Z', '+00:00'))
+                            if scheduled_time <= now:
+                                filtered_notifications.append(notification)
+                    except Exception as e:
+                        logger.warning(f"⚠️ Error parsing notification time: {e}")
+                        continue
+                
+                if filtered_notifications:
+                    logger.info(f"🔍 Found {len(filtered_notifications)} pending notifications (filtered from {len(response['data'])} total)")
+                    return filtered_notifications
+                else:
+                    logger.debug("🔍 No pending notifications ready to be sent")
+                    return []
             else:
-                logger.debug("🔍 No pending notifications found")
+                logger.debug("🔍 No pending notifications found in database")
                 return []
                 
         except Exception as e:
