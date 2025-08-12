@@ -364,8 +364,13 @@ async def handle_advanced_reminder_saving(update, content_data: dict) -> None:
     try:
         user_id = str(update.effective_user.id)
         
+        # Debug: Log the content_data to see what the AI extracted
+        logger.info(f"🔍 DEBUG: Advanced AI reminder data: {content_data}")
+        
         # Check if time is specified
         time_str = content_data.get('time')
+        logger.info(f"🔍 DEBUG: Extracted time string: '{time_str}'")
+        
         if not time_str:
             # Ask for time
             await update.message.reply_text(
@@ -385,7 +390,9 @@ async def handle_advanced_reminder_saving(update, content_data: dict) -> None:
         
         # Parse the time
         from core.time_parser import parse_time_expression
+        logger.info(f"🔍 DEBUG: About to parse time: '{time_str}'")
         parsed_time = await parse_time_expression(time_str)
+        logger.info(f"🔍 DEBUG: Parsed time result: {parsed_time}")
         
         if parsed_time and parsed_time.get('datetime'):
             # Save reminder with parsed time
@@ -401,13 +408,15 @@ async def handle_advanced_reminder_saving(update, content_data: dict) -> None:
                 await update.message.reply_text(f"⏰ Reminder set for {formatted_time}!")
                 
                 # Schedule the actual notification
+                logger.info(f"🔍 DEBUG: About to schedule notification for {parsed_time['datetime']}")
                 from core.notification_scheduler import schedule_reminder
-                await schedule_reminder(
+                success = await schedule_reminder(
                     user_id,
                     content_data.get('title', 'Reminder'),
                     content_data.get('content', ''),
                     parsed_time['datetime']
                 )
+                logger.info(f"🔍 DEBUG: Notification scheduling result: {success}")
             else:
                 await update.message.reply_text("❌ Failed to save reminder. Please try again.")
         else:
