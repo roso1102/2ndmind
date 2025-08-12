@@ -518,15 +518,7 @@ class NotificationScheduler:
             now = datetime.now(timezone.utc)
             
             # Query for notifications that should be sent now
-            response = await supabase_rest.execute(
-                'GET',
-                'notifications',
-                params={
-                    'scheduled_time': f'lte.{now.isoformat()}',
-                    'status': 'eq.pending',
-                    'select': '*'
-                }
-            )
+            response = supabase_rest.table('notifications').select().eq('status', 'pending').execute()
             
             if response.get('success') and response.get('data'):
                 logger.info(f"🔍 Found {len(response['data'])} pending notifications")
@@ -546,17 +538,10 @@ class NotificationScheduler:
             from datetime import datetime, timezone
             
             # Update notification status to 'sent'
-            response = await supabase_rest.execute(
-                'PATCH',
-                'notifications',
-                data={
-                    'status': 'sent',
-                    'sent_at': datetime.now(timezone.utc).isoformat()
-                },
-                params={
-                    'id': f'eq.{notification_id}'
-                }
-            )
+            response = supabase_rest.table('notifications').update({
+                'status': 'sent',
+                'sent_at': datetime.now(timezone.utc).isoformat()
+            }).eq('id', notification_id).execute()
             
             if response.get('success'):
                 logger.info(f"✅ Marked notification {notification_id} as sent")
