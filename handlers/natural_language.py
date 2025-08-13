@@ -179,7 +179,20 @@ def pre_classify_message(message: str) -> Optional[Dict]:
             'confidence': 0.8
         }
 
-    # Default to note for sentence-like
+    # Detect questions/search intents BEFORE defaulting to note
+    question_triggers = [
+        'what did i save', 'search', 'find', 'show me', 'what do i have',
+        'saved about', 'do i have anything about', 'what did i', 'what do i'
+    ]
+    if '?' in lower or any(t in lower for t in question_triggers):
+        return {
+            'type': 'question',
+            'title': msg,
+            'content': msg,
+            'confidence': 0.9
+        }
+
+    # Default to note for sentence-like (only if not question-like)
     if len(msg.split()) >= 3:
         return {
             'type': 'note',
