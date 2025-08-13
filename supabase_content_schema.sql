@@ -118,3 +118,56 @@ COMMENT ON COLUMN user_content.user_id IS 'Reference to user from users table';
 COMMENT ON COLUMN user_content.content_type IS 'Type of content: note, link, task, reminder, file';
 COMMENT ON COLUMN user_content.search_vector IS 'Auto-generated full-text search vector';
 COMMENT ON COLUMN user_content.ai_confidence IS 'AI classification confidence (0.0-1.0)';
+
+-- ===============================
+-- Conversation Memory Extensions
+-- ===============================
+
+-- Per-message conversation history
+CREATE TABLE IF NOT EXISTS conversation_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id TEXT NOT NULL,
+    conversation_id TEXT DEFAULT 'default',
+    role TEXT CHECK (role IN ('user','assistant')) NOT NULL,
+    content TEXT NOT NULL,
+    intent TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_conv_hist_user ON conversation_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_conv_hist_conv ON conversation_history(user_id, conversation_id, created_at DESC);
+
+ALTER TABLE conversation_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their conversation history" ON conversation_history
+    FOR ALL USING (true);
+GRANT ALL ON conversation_history TO authenticated;
+GRANT ALL ON conversation_history TO anon;
+
+-- Rolling conversation summaries per user/conversation
+CREATE TABLE IF NOT EXISTS conversation_summaries (
+    user_id TEXT PRIMARY KEY,
+    conversation_id TEXT DEFAULT 'default',
+    summary TEXT,
+    awaiting_followup BOOLEAN DEFAULT FALSE,
+    followup_context JSONB,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE conversation_summaries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their conversation summaries" ON conversation_summaries
+    FOR ALL USING (true);
+GRANT ALL ON conversation_summaries TO authenticated;
+GRANT ALL ON conversation_summaries TO anon;
+
+CREATE OR REPLACE FUNCTION update_conv_summary_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER trg_update_conv_summary_updated_at
+    BEFORE UPDATE ON conversation_summaries
+    FOR EACH ROW
+    EXECUTE FUNCTION update_conv_summary_updated_at();

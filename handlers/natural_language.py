@@ -458,7 +458,20 @@ async def process_natural_message(update, context=None) -> None:
             from core.advanced_ai import process_with_advanced_ai
             ai_response = await process_with_advanced_ai(user_id, user_message)
             
-            # Handle the AI response
+            # If AI explicitly requested search, route to search handler
+            ai_intent = (ai_response.intent or '').upper()
+            if ai_intent in ("SEARCH", "QUESTION"):
+                classification = {"confidence": ai_response.confidence if hasattr(ai_response, 'confidence') else 0.9}
+                await handle_question_intent(update, context, user_message, classification)
+                return
+            
+            # Heuristic fallback: if the message looks like a search, still run search
+            if any(k in user_message.lower() for k in ['what did i save', 'search', 'find', 'show me', 'what do i have']):
+                classification = {"confidence": ai_response.confidence if hasattr(ai_response, 'confidence') else 0.9}
+                await handle_question_intent(update, context, user_message, classification)
+                return
+            
+            # Otherwise handle the AI response normally
             await handle_advanced_ai_response(update, context, ai_response)
             return
             

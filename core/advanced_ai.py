@@ -29,6 +29,7 @@ class ConversationContext:
     current_intent: Optional[str] = None
     awaiting_followup: bool = False
     followup_context: Dict = None
+    conversation_summary: Optional[str] = None
     
     def __post_init__(self):
         if self.recent_messages is None:
@@ -37,6 +38,8 @@ class ConversationContext:
             self.user_preferences = {}
         if self.followup_context is None:
             self.followup_context = {}
+        if self.conversation_summary is None:
+            self.conversation_summary = ""
 
 @dataclass
 class AIResponse:
@@ -108,7 +111,7 @@ class AdvancedAI:
             self.conversation_contexts[user_id] = context
             
             # Save conversation to database
-            await self._save_conversation(user_id, message, ai_response)
+            await self._save_conversation(user_id, message, ai_response, context)
             
             return ai_response
             
@@ -232,6 +235,8 @@ Remember: Be conversational, helpful, and intelligent. Think like ChatGPT!
         
         base_personality = personality_traits.get(personality, personality_traits['helpful'])
         
+        summary_block = f"Conversation summary so far: {context.conversation_summary}" if context.conversation_summary else "No prior summary available."
+
         return f"""
 {base_personality}
 
@@ -255,6 +260,7 @@ USER CONTEXT:
 • Timezone: {timezone}
 • Current conversation context: {context.current_intent or 'General conversation'}
 • Awaiting followup: {context.awaiting_followup}
+• {summary_block}
 
 CONTENT TYPES YOU CAN SAVE:
 • NOTES: Ideas, thoughts, learnings, information to remember
@@ -282,18 +288,41 @@ Remember: You're not just classifying intent - you're having an intelligent conv
         
         # Load from database if available
         try:
-            from handlers.supabase_content import content_handler
+            from core.supabase_rest import supabase_rest
             
-            # Get recent conversation history
-            # This would query the conversation_history table
-            # For now, create a fresh context
-            
+            # Load rolling summary and followup state
+            summary_q = supabase_rest.table('conversation_summaries').select('*').eq('user_id', user_id).limit(1).execute()
+            conversation_summary = ""
+            awaiting_followup = False
+            followup_context = {}
+            if summary_q.get('data'):
+                row = summary_q['data'][0]
+                conversation_summary = row.get('summary') or ""
+                awaiting_followup = bool(row.get('awaiting_followup') or False)
+                followup_context = row.get('followup_context') or {}
+
+            # Load some recent messages for context if needed (optional)
+            hist_q = supabase_rest.table('conversation_history').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(6).execute()
+            recent_messages: List[Dict] = []
+            if hist_q.get('data'):
+                # reverse to chronological order
+                for row in reversed(hist_q['data']):
+                    recent_messages.append({
+                        'role': row.get('role', 'user'),
+                        'content': row.get('content', ''),
+                        'timestamp': row.get('created_at')
+                    })
+
             # Get user preferences
             user_prefs = await self._get_user_preferences(user_id)
             
             context = ConversationContext(
                 user_id=user_id,
-                user_preferences=user_prefs
+                user_preferences=user_prefs,
+                recent_messages=recent_messages,
+                conversation_summary=conversation_summary,
+                awaiting_followup=awaiting_followup,
+                followup_context=followup_context
             )
             
             self.conversation_contexts[user_id] = context
@@ -317,14 +346,68 @@ Remember: You're not just classifying intent - you're having an intelligent conv
             logger.error(f"Error getting user preferences: {e}")
             return {}
     
-    async def _save_conversation(self, user_id: str, message: str, response: AIResponse) -> None:
-        """Save conversation to database."""
+    async def _save_conversation(self, user_id: str, message: str, response: AIResponse, context: ConversationContext) -> None:
+        """Save conversation turns and update rolling summary & followup state."""
         try:
-            # This would save to conversation_history table
-            # For now, just log
+            from core.supabase_rest import supabase_rest
+
+            # Persist both user and assistant turns
+            user_row = {
+                'user_id': user_id,
+                'role': 'user',
+                'content': message,
+                'intent': None
+            }
+            ai_row = {
+                'user_id': user_id,
+                'role': 'assistant',
+                'content': response.text,
+                'intent': response.intent
+            }
+            supabase_rest.table('conversation_history').insert(user_row).execute()
+            supabase_rest.table('conversation_history').insert(ai_row).execute()
+
+            # Update rolling summary (keep concise)
+            updated_summary = self._summarize_recent(context)
+            context.conversation_summary = updated_summary
+
+            # Upsert conversation_summaries (manual upsert: try update, else insert)
+            existing = supabase_rest.table('conversation_summaries').select('*').eq('user_id', user_id).limit(1).execute()
+            summary_payload = {
+                'user_id': user_id,
+                'conversation_id': 'default',
+                'summary': updated_summary,
+                'awaiting_followup': bool(context.awaiting_followup),
+                'followup_context': context.followup_context or {}
+            }
+            if existing.get('data'):
+                supabase_rest.table('conversation_summaries').update(summary_payload).eq('user_id', user_id).execute()
+            else:
+                supabase_rest.table('conversation_summaries').insert(summary_payload).execute()
+
             logger.info(f"💬 Conversation: {user_id} -> {response.intent}")
         except Exception as e:
             logger.error(f"Error saving conversation: {e}")
+
+    def _summarize_recent(self, context: ConversationContext) -> str:
+        """Very lightweight rolling summary from the last few turns + prior summary."""
+        try:
+            recent = context.recent_messages[-6:] if context.recent_messages else []
+            parts: List[str] = []
+            for msg in recent:
+                role = msg.get('role', 'user')
+                content = str(msg.get('content', ''))
+                content = content.replace('\n', ' ').strip()
+                if len(content) > 180:
+                    content = content[:180] + '…'
+                parts.append(f"{role}: {content}")
+            # Combine with existing summary, trim to ~600 chars
+            combined = (context.conversation_summary + " | " if context.conversation_summary else "") + " | ".join(parts)
+            if len(combined) > 600:
+                combined = combined[-600:]
+            return combined.strip(' |')
+        except Exception:
+            return context.conversation_summary or ""
     
     def _fallback_response(self, message: str) -> AIResponse:
         """Fallback response when AI is not available."""

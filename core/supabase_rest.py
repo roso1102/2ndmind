@@ -104,9 +104,26 @@ class SupabaseQuery:
         self.limit_count = count
         return self
     
-    def text_search(self, column: str, query: str) -> 'SupabaseQuery':
-        """Add text search filter (PostgreSQL full-text search)."""
-        self.filters.append(f"{column}=fts.{query}")
+    def text_search(self, column: str, query: str, mode: str = 'auto') -> 'SupabaseQuery':
+        """Add text search filter (PostgreSQL full-text search).
+        mode: 'auto' | 'fts' | 'plfts' | 'phfts' | 'wfts'
+        'auto' chooses:
+          - phfts if quotes present
+          - plfts if contains whitespace or multiple terms
+          - fts otherwise
+        """
+        operator = 'fts'
+        q = str(query or '')
+        if mode == 'auto':
+            if '"' in q:
+                operator = 'phfts'
+            elif len(q.split()) > 1:
+                operator = 'plfts'
+            else:
+                operator = 'fts'
+        else:
+            operator = mode
+        self.filters.append(f"{column}={operator}.{q}")
         return self
     
     def or_(self, filter_string: str) -> 'SupabaseQuery':
