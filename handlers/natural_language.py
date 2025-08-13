@@ -136,20 +136,32 @@ def pre_classify_message(message: str) -> Optional[Dict]:
             'confidence': 0.95
         }
 
-    # Detect reminder phrases
+    # Detect reminder phrases (be conservative to avoid false positives like "I had apples today")
     reminder_triggers = ['remind me', 'reminder', 'alert me', 'notify me']
-    time_patterns = [
+    strong_time_patterns = [
         r'in\s+\d+\s+(minute|minutes|hour|hours)',
-        r'at\s+\d{1,2}:\d{2}(\s*(am|pm))?',
-        r'(tomorrow|today|tonight|next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday))',
+        r'at\s+\d{1,2}:\d{2}(\s*(am|pm))?'
     ]
-    if any(t in lower for t in reminder_triggers) or any(re.search(p, lower) for p in time_patterns):
+    weak_date_words = [
+        'tomorrow', 'today', 'tonight',
+        'next monday', 'next tuesday', 'next wednesday', 'next thursday', 'next friday', 'next saturday', 'next sunday'
+    ]
+    action_verbs = ['remind', 'call', 'meet', 'meeting', 'appointment', 'schedule', 'set', 'pay', 'submit', 'send', 'email', 'message', 'text', 'buy', 'pickup', 'renew']
+    has_trigger = any(t in lower for t in reminder_triggers)
+    has_strong_time = any(re.search(p, lower) for p in strong_time_patterns)
+    has_weak_date = any(w in lower for w in weak_date_words)
+    has_action = any(v in lower for v in action_verbs)
+
+    if has_trigger or has_strong_time or (has_weak_date and has_action):
         time_text = None
-        for p in time_patterns:
+        for p in strong_time_patterns:
             m = re.search(p, lower)
             if m:
                 time_text = m.group(0)
                 break
+        if not time_text and has_weak_date:
+            # keep weak date as time hint only if an action is present
+            time_text = next((w for w in weak_date_words if w in lower), None)
         if not time_text:
             m = re.search(r'in\s+(\d+)\b', lower)
             if m:
@@ -240,37 +252,44 @@ class IntentClassifier:
         return self._classify_with_keywords(message)
     
     async def _classify_with_ai(self, message: str) -> Dict[str, any]:
-        """Use Groq/Llama3 for intent classification."""
+        """Use Groq/Llama3 for strict, JSON-only intent classification with entities."""
         
         prompt = f"""
-Classify this message into ONE of these intents. Follow these STRICT rules:
+You are a strict intent classifier. Classify the message into ONE intent and extract entities.
 
-1. LINK - ONLY if message contains http:// or https:// URLs
-2. NOTE - Ideas, thoughts, facts to remember, "I have an idea", learning notes
-3. TASK - TODOs, "I need to", "remember to do", action items
-4. REMINDER - Time-based alerts, "remind me at", "meeting tomorrow"
-5. QUESTION - Asking for information, "what did I save", searching content
-6. GREETING - Hello, hi, greetings, casual conversation
-7. FILE - File uploads, document references
-8. OTHER - Everything else
+Allowed intents:
+- SEARCH: User is asking to find or recall saved content (e.g., "what did I save about X", "find Y").
+- SAVE_NOTE: Ideas, thoughts, learnings, notes to remember.
+- SAVE_TASK: TODOs, action items ("I need to", "should", "task:").
+- SAVE_LINK: Only when http:// or https:// URL present (or explicit bookmark intent with a valid URL).
+- SAVE_REMINDER: Time-based alerts ("remind me", explicit time like "at 3pm", "in 2 hours").
+- HELP: Help requests about usage/features.
+- CHAT: Casual conversation/greeting, not actionable.
+- FILE: File upload or document references.
+- OTHER: Everything else.
 
-CRITICAL CLASSIFICATION RULES:
-- "I have an idea about X" = NOTE (NOT LINK!)
-- "I learned about X" = NOTE (unless URL present)
-- "Remember this: X" = NOTE
-- URLs with context = LINK only
-- NO URL present = NEVER classify as LINK
-
-EXAMPLES:
-- "I have an idea about solar panels" → NOTE
-- "https://example.com solar panels" → LINK
-- "I need to call mom" → TASK
-- "What did I save today?" → QUESTION
+Rules:
+- "what did I save about X" MUST be SEARCH, not note.
+- Classify as SAVE_LINK only if a valid URL is present.
+- For SAVE_REMINDER, require a time expression or clear scheduling phrasing.
+- If uncertain, set confidence lower and use needs_followup with a short followup_question.
 
 Message: "{message}"
 
-RESPOND WITH VALID JSON ONLY:
-{{"intent": "NOTE", "confidence": 0.95, "reasoning": "Saving an idea or thought - no URL present"}}
+Respond with compact valid JSON ONLY, no prose:
+{{
+  "intent": "SEARCH|SAVE_NOTE|SAVE_TASK|SAVE_LINK|SAVE_REMINDER|HELP|CHAT|FILE|OTHER",
+  "confidence": 0.0,
+  "reasoning": "short",
+  "needs_followup": false,
+  "followup_question": null,
+  "entities": {{
+    "search_term": null,
+    "url": null,
+    "time_expression": null,
+    "content_text": null
+  }}
+}}
 """
 
         # Try larger models first for better intent classification
@@ -288,7 +307,7 @@ RESPOND WITH VALID JSON ONLY:
                     messages=[{"role": "user", "content": prompt}],
                     model=model,
                     temperature=0.1,
-                    max_tokens=100
+                    max_tokens=180
                 )
                 logger.debug(f"Using model: {model}")
                 break  # Success, exit the loop
@@ -307,7 +326,14 @@ RESPOND WITH VALID JSON ONLY:
         try:
             # First try direct JSON parsing
             result = json.loads(result_text)
-            logger.info(f"🤖 AI classified '{message[:30]}...' as {result['intent']} (confidence: {result['confidence']})")
+            # Ensure required keys exist
+            if 'entities' not in result:
+                result['entities'] = {"search_term": None, "url": None, "time_expression": None, "content_text": None}
+            if 'needs_followup' not in result:
+                result['needs_followup'] = False
+            if 'followup_question' not in result:
+                result['followup_question'] = None
+            logger.info(f"🤖 AI classified '{message[:30]}...' as {result.get('intent')} (confidence: {result.get('confidence')})")
             return result
         except json.JSONDecodeError:
             # Try to extract JSON from response text
@@ -317,7 +343,13 @@ RESPOND WITH VALID JSON ONLY:
                 if json_match:
                     json_str = json_match.group(0)
                     result = json.loads(json_str)
-                    logger.info(f"🤖 AI classified '{message[:30]}...' as {result['intent']} (extracted from text)")
+                    if 'entities' not in result:
+                        result['entities'] = {"search_term": None, "url": None, "time_expression": None, "content_text": None}
+                    if 'needs_followup' not in result:
+                        result['needs_followup'] = False
+                    if 'followup_question' not in result:
+                        result['followup_question'] = None
+                    logger.info(f"🤖 AI classified '{message[:30]}...' as {result.get('intent')} (extracted from text)")
                     return result
             except json.JSONDecodeError:
                 pass
@@ -333,8 +365,8 @@ RESPOND WITH VALID JSON ONLY:
                 return {"intent": "NOTE", "confidence": 0.8, "reasoning": "AI mentioned note in response"}
             elif "task" in result_lower:
                 return {"intent": "TASK", "confidence": 0.8, "reasoning": "AI mentioned task in response"}
-            elif "question" in result_lower:
-                return {"intent": "QUESTION", "confidence": 0.8, "reasoning": "AI mentioned question in response"}
+            elif "question" in result_lower or "search" in result_lower:
+                return {"intent": "SEARCH", "confidence": 0.8, "reasoning": "AI mentioned search/question in response"}
             elif "reminder" in result_lower:
                 return {"intent": "REMINDER", "confidence": 0.8, "reasoning": "AI mentioned reminder in response"}
             elif "greeting" in result_lower:
@@ -377,10 +409,10 @@ RESPOND WITH VALID JSON ONLY:
         if any(keyword in message_lower for keyword in task_keywords):
             return {"intent": "TASK", "confidence": 0.7, "reasoning": "Task/action keywords detected"}
         
-        # Question keywords (seeking information)
-        question_keywords = ['?', 'what did i save', 'find', 'search', 'what', 'how', 'when', 'where', 'why', 'who', 'help me find']
-        if any(keyword in message_lower for keyword in question_keywords):
-            return {"intent": "QUESTION", "confidence": 0.7, "reasoning": "Question or search keywords detected"}
+        # Search/question keywords (prefer SEARCH intent)
+        question_keywords = ['what did i save', 'find', 'search', 'what do i have', 'show me', 'help me find']
+        if any(keyword in message_lower for keyword in question_keywords) or '?' in message_lower:
+            return {"intent": "SEARCH", "confidence": 0.75, "reasoning": "Search or question keywords detected"}
         
         # Note keywords (saving information, ideas)
         note_keywords = ['note', 'remember', 'save', 'keep', 'record', 'write down', 'important', 'idea', 'thought', 'learned', 'i have an idea', 'thinking about', 'discovered']
