@@ -869,6 +869,46 @@ Just talk to me naturally! I understand:
                         log(f"❌ Error in /edit: {e}", "ERROR")
                         await send_message(chat_id, f"❌ Error editing content: {str(e)}")
                     return {"ok": True}
+
+                elif cmd == "/timezone":
+                    log(f"🌍 Processing /timezone for user {user_id}")
+                    try:
+                        from handlers.basic_commands import timezone_handler
+                        user_data = message.get("from", {})
+                        
+                        class MockUpdate:
+                            def __init__(self, text, chat_id, user_id, username, first_name=None, last_name=None):
+                                self.message = MockMessage(text, chat_id)
+                                self.effective_user = MockUser(user_id, username, first_name, last_name)
+                        
+                        class MockMessage:
+                            def __init__(self, text, chat_id):
+                                self.text = text
+                                self.chat_id = chat_id
+                            async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
+                                await send_message(self.chat_id, response, parse_mode)
+                        
+                        class MockUser:
+                            def __init__(self, user_id, username, first_name=None, last_name=None):
+                                self.id = int(user_id)
+                                self.username = username
+                                self.first_name = first_name
+                                self.last_name = last_name
+                        
+                        class MockContext:
+                            def __init__(self, args):
+                                self.args = args
+                        
+                        parts = text.split()[1:]
+                        mock_update = MockUpdate(text, chat_id, user_id, user_data.get("username"), user_data.get("first_name"), user_data.get("last_name"))
+                        mock_context = MockContext(parts)
+                        
+                        await timezone_handler(mock_update, mock_context)
+                        log(f"✅ /timezone completed for user {user_id}")
+                    except Exception as e:
+                        log(f"❌ Error in /timezone: {e}", "ERROR")
+                        await send_message(chat_id, f"❌ Error setting timezone: {str(e)}")
+                    return {"ok": True}
                 
                 else:
                     # Unknown command
