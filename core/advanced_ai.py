@@ -174,7 +174,7 @@ Remember: Be conversational, helpful, and intelligent. Think like ChatGPT!
 """
 
         try:
-            primary = (os.getenv('LLM_PRIMARY') or 'GROQ').upper()
+            primary = (os.getenv('LLM_PRIMARY') or 'GEMINI').upper()
             fallback = (os.getenv('LLM_FALLBACK') or 'GROQ').upper()
             last_error = None
 

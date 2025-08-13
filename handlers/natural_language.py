@@ -47,6 +47,19 @@ def extract_search_term(message: str) -> Optional[str]:
     
     return None
 
+def _is_low_signal_term(term: str) -> bool:
+    """Detect vague/low-information search terms that should trigger a follow-up."""
+    if not term:
+        return True
+    t = term.strip().lower()
+    if len(t) < 3:
+        return True
+    vague = {
+        'stuff', 'things', 'thing', 'it', 'that', 'those', 'these',
+        'everything', 'anything', 'something', 'notes', 'content', 'saved'
+    }
+    return t in vague
+
 # --- Lightweight summarization & formatting helpers ---
 def _split_sentences(text: str) -> List[str]:
     """Very simple sentence splitter robust to missing punctuation."""
@@ -825,6 +838,13 @@ async def handle_question_intent(update, context, message: str, classification: 
                 search_engine = get_search_engine()
                 
                 # Use the advanced search engine
+                # If the term is low-signal, ask for refinement first
+                if _is_low_signal_term(search_term):
+                    await update.message.reply_text(
+                        "🔎 I can search better with a bit more detail. Try: \n• 'what did I save about project X'\n• 'search notes about breathwork'"
+                    )
+                    return
+
                 search_result = await search_engine.search(user_id, search_term, limit=5)
                 
                 if search_result.get("success") and search_result.get("results"):
