@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>MySecondMind App</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div class="max-w-5xl mx-auto py-6">
+    <div id="authStatus" class="text-sm text-gray-500 mb-4">Checking session…</div>
+    <div id="appRoot" class="hidden">
+      <div class="flex">
+        <aside class="w-56 bg-white border rounded p-3 space-y-2 mr-4">
+          <button class="w-full text-left px-3 py-2 rounded hover:bg-gray-100" data-type="all">All</button>
+          <button class="w-full text-left px-3 py-2 rounded hover:bg-gray-100" data-type="note">Notes</button>
+          <button class="w-full text-left px-3 py-2 rounded hover:bg-gray-100" data-type="task">Tasks</button>
+          <button class="w-full text-left px-3 py-2 rounded hover:bg-gray-100" data-type="link">Links</button>
+          <button class="w-full text-left px-3 py-2 rounded hover:bg-gray-100" data-type="reminder">Reminders</button>
+        </aside>
+        <main class="flex-1">
+          <form id="createForm" class="flex gap-2 mb-3">
+            <select name="ctype" class="border rounded px-2 py-2">
+              <option value="note">Note</option>
+              <option value="task">Task</option>
+              <option value="link">Link</option>
+              <option value="reminder">Reminder</option>
+            </select>
+            <input name="title" placeholder="Title" class="border rounded px-2 py-2"/>
+            <input name="url" placeholder="URL (for link)" class="border rounded px-2 py-2"/>
+            <input name="content" placeholder="Content" class="border rounded px-2 py-2 w-96"/>
+            <button class="bg-blue-600 text-white px-4 py-2 rounded">Add</button>
+          </form>
+          <section id="main" class="space-y-3 text-gray-500">Loading…</section>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_ORIGIN = 'https://YOUR-RENDER-API';
+
+    async function checkSession() {
+      try {
+        const res = await fetch(`${API_ORIGIN}/api/me`, { credentials: 'include' });
+        if (!res.ok) throw new Error('unauth');
+        const { user_id } = await res.json();
+        document.getElementById('authStatus').textContent = `Logged in as ${user_id}`;
+        document.getElementById('appRoot').classList.remove('hidden');
+        loadList('all');
+      } catch (e) {
+        document.getElementById('authStatus').innerHTML = `Not logged in. <a class="text-blue-600 underline" href="/">Login</a>`;
+      }
+    }
+
+    async function loadList(type) {
+      const target = document.getElementById('main');
+      target.textContent = 'Loading…';
+      const url = type === 'all' ? `${API_ORIGIN}/partials/list` : `${API_ORIGIN}/partials/list?type=${encodeURIComponent(type)}`;
+      const res = await fetch(url, { credentials: 'include' });
+      target.innerHTML = await res.text();
+    }
+
+    document.querySelectorAll('aside [data-type]').forEach(btn => {
+      btn.addEventListener('click', () => loadList(btn.dataset.type));
+    });
+
+    document.getElementById('createForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.currentTarget;
+      const data = new FormData(form);
+      const res = await fetch(`${API_ORIGIN}/api/content`, {
+        method: 'POST',
+        body: data,
+        credentials: 'include'
+      });
+      // After create, reload list
+      loadList('all');
+      form.reset();
+    });
+
+    checkSession();
+  </script>
+</body>
+</html>
+

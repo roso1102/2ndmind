@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 from contextlib import asynccontextmanager
-from fastapi import Request, Depends, Form
+from fastapi import Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -99,6 +99,105 @@ try:
         )
 except Exception:
     pass
+
+# ------------------------------
+# Auth helpers (Telegram Login + signed session cookie)
+# ------------------------------
+
+import hmac as _hmac
+import hashlib as _hashlib
+from time import time as _time
+from typing import Tuple as _Tuple
+
+_COOKIE_NAME = "ms2_session"
+_COOKIE_MAX_AGE = 30 * 24 * 60 * 60  # 30 days
+
+
+def _get_signing_key() -> bytes:
+    # Prefer ENCRYPTION_MASTER_KEY else TELEGRAM_TOKEN
+    key = (os.getenv("ENCRYPTION_MASTER_KEY") or os.getenv("TELEGRAM_TOKEN") or "").encode()
+    if not key:
+        # Fallback fixed dev key (non-production)
+        key = b"dev-key"
+    return _hashlib.sha256(key).digest()
+
+
+def _sign_session(user_id: str, expires: int) -> str:
+    payload = f"{user_id}|{expires}".encode()
+    sig = _hmac.new(_get_signing_key(), payload, _hashlib.sha256).hexdigest()
+    return f"{user_id}|{expires}|{sig}"
+
+
+def _verify_session(token: str) -> str:
+    try:
+        user_id, exp_str, sig = token.split("|", 2)
+        expires = int(exp_str)
+        if expires < int(_time()):
+            return ""
+        expected = _hmac.new(_get_signing_key(), f"{user_id}|{expires}".encode(), _hashlib.sha256).hexdigest()
+        if _hmac.compare_digest(expected, sig):
+            return user_id
+    except Exception:
+        return ""
+    return ""
+
+
+def _verify_telegram_login(params: dict) -> _Tuple[bool, str]:
+    """Verify Telegram Login payload. Returns (ok, user_id)."""
+    try:
+        received_hash = params.get("hash", "")
+        data = {k: v for k, v in params.items() if k != "hash"}
+        # Build data-check-string (keys sorted alphabetically)
+        check_lines = [f"{k}={data[k]}" for k in sorted(data.keys())]
+        data_check_string = "\n".join(check_lines)
+        # Secret key = sha256(bot_token)
+        bot_token = os.getenv("TELEGRAM_TOKEN") or ""
+        secret_key = _hashlib.sha256(bot_token.encode()).digest()
+        computed_hash = _hmac.new(secret_key, data_check_string.encode(), _hashlib.sha256).hexdigest()
+        if not _hmac.compare_digest(computed_hash, received_hash):
+            return False, ""
+        user = data.get("id") or data.get("user[id]") or ""
+        return True, str(user)
+    except Exception:
+        return False, ""
+
+
+@app.get("/api/me")
+async def api_me(request: Request):
+    token = request.cookies.get(_COOKIE_NAME, "")
+    user_id = _verify_session(token) if token else ""
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return {"user_id": user_id}
+
+
+@app.get("/auth/telegram")
+async def auth_telegram(request: Request):
+    # Telegram passes all params on query string
+    params = dict(request.query_params)
+    ok, user_id = _verify_telegram_login(params)
+    if not ok or not user_id:
+        raise HTTPException(status_code=401, detail="Telegram verification failed")
+
+    # Issue session cookie
+    expires = int(_time()) + _COOKIE_MAX_AGE
+    token = _sign_session(user_id, expires)
+
+    target = os.getenv("DASHBOARD_ORIGIN", "") or os.getenv("VERCEL_ORIGIN", "") or "/"
+    # Prefer redirect to /app.html on dashboard
+    redirect_url = f"{target.rstrip('/')}/app.html" if target.startswith("http") else "/dashboard"
+    resp = RedirectResponse(url=redirect_url, status_code=302)
+    resp.set_cookie(
+        key=_COOKIE_NAME,
+        value=token,
+        max_age=_COOKIE_MAX_AGE,
+        expires=_COOKIE_MAX_AGE,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+    )
+    return resp
 
 # --- Simple session helper (placeholder until Telegram Login wired) ---
 def get_current_user_id(request: Request) -> str:
