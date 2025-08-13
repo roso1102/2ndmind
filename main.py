@@ -783,6 +783,51 @@ Just talk to me naturally! I understand:
                     await send_message(chat_id, "🟢 Bot is healthy and running!")
                     return {"ok": True}
 
+                elif cmd == "/search":
+                    log(f"🔎 Processing /search for user {user_id}")
+                    try:
+                        from handlers.content_commands import search_command
+                        user_data = message.get("from", {})
+
+                        class MockUpdate:
+                            def __init__(self, text, chat_id, user_id, username, first_name=None, last_name=None):
+                                self.message = MockMessage(text, chat_id)
+                                self.effective_user = MockUser(user_id, username, first_name, last_name)
+
+                        class MockMessage:
+                            def __init__(self, text, chat_id):
+                                self.text = text
+                                self.chat_id = chat_id
+                            async def reply_text(self, response, parse_mode=None, disable_web_page_preview=None):
+                                await send_message(self.chat_id, response, parse_mode)
+
+                        class MockUser:
+                            def __init__(self, user_id, username, first_name=None, last_name=None):
+                                self.id = int(user_id)
+                                self.username = username
+                                self.first_name = first_name
+                                self.last_name = last_name
+
+                        class MockContext:
+                            def __init__(self, args):
+                                self.args = args
+
+                        # Args after /search
+                        parts = message["text"].split()[1:]
+                        mock_update = MockUpdate(message["text"], chat_id, user_id, user_data.get("username"), user_data.get("first_name"), user_data.get("last_name"))
+                        mock_context = MockContext(parts)
+
+                        # Ensure registration
+                        if not await check_user_registration(mock_update, chat_id):
+                            return {"ok": True}
+
+                        await search_command(mock_update, mock_context)
+                        log(f"✅ /search completed for user {user_id}")
+                    except Exception as e:
+                        log(f"❌ Error in /search: {e}", "ERROR")
+                        await send_message(chat_id, f"❌ Error searching: {str(e)}")
+                    return {"ok": True}
+
                 elif cmd == "/link":
                     try:
                         parts = text.split()

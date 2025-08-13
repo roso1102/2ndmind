@@ -837,7 +837,17 @@ async def handle_question_intent(update, context, message: str, classification: 
                 from core.search_engine import get_search_engine
                 search_engine = get_search_engine()
                 
-                # Use the advanced search engine
+                # Optional content-type narrowing if user asked to search a specific type
+                content_type_hint = None
+                if 'search notes' in message_lower or 'notes about' in message_lower:
+                    content_type_hint = 'note'
+                elif 'search tasks' in message_lower or 'tasks about' in message_lower:
+                    content_type_hint = 'task'
+                elif 'search links' in message_lower or 'links about' in message_lower:
+                    content_type_hint = 'link'
+                elif 'search reminders' in message_lower or 'reminders about' in message_lower:
+                    content_type_hint = 'reminder'
+
                 # If the term is low-signal, ask for refinement first
                 if _is_low_signal_term(search_term):
                     await update.message.reply_text(
@@ -924,6 +934,18 @@ async def handle_question_intent(update, context, message: str, classification: 
                     if len(results) > 0 and len(response) <= 3500:
                         response += "Manage: say 'delete 2', 'edit 3 <new text>', or run /search again."
                 else:
+                    # If user hinted a type, do a type-scoped quick scan as a fallback
+                    if content_type_hint:
+                        try:
+                            from handlers.supabase_content import content_handler
+                            all_content = await content_handler.get_user_content(user_id, content_type=content_type_hint, limit=50)
+                            if all_content.get('success'):
+                                ql = search_term.lower()
+                                filtered = [it for it in all_content['content'] if ql in (it.get('title','').lower()+" "+it.get('content','').lower())]
+                                if filtered:
+                                    search_result = {"success": True, "results": filtered, "count": len(filtered)}
+                        except Exception:
+                            pass
                     response = f"🔍 No results found for '{search_term}'.\n\n"
                     response += "Try:\n"
                     response += "• Different keywords\n"
