@@ -526,13 +526,15 @@ async def handle_advanced_reminder_saving(update, content_data: dict) -> None:
             from datetime import timezone as _tz
             
             reminder_content = f"{content_data.get('title', '')} - {content_data.get('content', '')}"
-            _dt = parsed_time['datetime']
-            if _dt.tzinfo is None:
-                try:
-                    _dt = _pytz.timezone(user_tz).localize(_dt)
-                except Exception:
-                    pass
-            dt_utc = _dt.astimezone(_pytz.UTC)
+            _dt_parsed = parsed_time['datetime']
+            # Always interpret the parsed wall-clock time in the user's timezone
+            tz_obj = _pytz.timezone(user_tz)
+            naive = _dt_parsed.replace(tzinfo=None)
+            try:
+                dt_local = tz_obj.localize(naive)
+            except Exception:
+                dt_local = naive
+            dt_utc = dt_local.astimezone(_pytz.UTC)
             result = await content_handler.save_reminder(user_id, reminder_content, {
                 'scheduled_time': dt_utc.isoformat()
             })

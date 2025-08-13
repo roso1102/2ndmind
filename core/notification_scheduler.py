@@ -98,7 +98,11 @@ class NotificationScheduler:
                         ts = n.get('scheduled_time')
                         if not ts:
                             continue
-                        scheduled_dt = datetime.fromisoformat(str(ts).replace('Z', '+00:00'))
+                        # Robust parse of ISO with or without Z
+                        s = str(ts)
+                        if s.endswith('Z'):
+                            s = s.replace('Z', '+00:00')
+                        scheduled_dt = datetime.fromisoformat(s)
                         if scheduled_dt <= cutoff:
                             ready.append(n)
                         else:
