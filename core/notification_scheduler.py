@@ -294,6 +294,16 @@ class NotificationScheduler:
     async def _send_notification(self, notification: NotificationTask):
         """Send a notification to the user."""
         try:
+            # Final timing guard: if we woke up early, wait until exact due time
+            try:
+                now = datetime.now(timezone.utc)
+                if notification.scheduled_time and now < notification.scheduled_time:
+                    delay = (notification.scheduled_time - now).total_seconds()
+                    if delay > 0:
+                        await asyncio.sleep(delay)
+            except Exception:
+                pass
+
             # Format the notification message
             formatted_message = await self._format_notification_message(notification)
             
@@ -363,7 +373,24 @@ class NotificationScheduler:
         """Format notification message based on type."""
         
         if notification.notification_type == 'reminder':
-            return f"⏰ **Reminder**\n\n{notification.message}\n\n_Set for {notification.scheduled_time.strftime('%I:%M %p')}_"
+            # Render in user's local timezone and simplify title
+            try:
+                from core.user_prefs import get_user_timezone
+                import pytz
+                user_tz_name = get_user_timezone(notification.user_id)
+                tz = pytz.timezone(user_tz_name)
+                local_dt = notification.scheduled_time.astimezone(tz) if notification.scheduled_time.tzinfo else tz.localize(notification.scheduled_time)
+                # Clean message: drop trailing "at HH:MM ..." patterns
+                import re
+                title = notification.message or "Reminder"
+                title = re.sub(r"\s+at\s+\d{1,2}(:\d{2})?(\s?(am|pm|AM|PM))?\b.*$", "", title).strip()
+                if not title:
+                    title = "Reminder"
+                time_str = local_dt.strftime('%b %d, %I:%M %p')
+                tz_abbr = local_dt.tzname() or user_tz_name
+                return f"⏰ Reminder: {title}\nTime: {time_str} {tz_abbr}"
+            except Exception:
+                return f"⏰ Reminder: {notification.message}"
         
         elif notification.notification_type == 'task':
             return f"📋 **Task Due**\n\n{notification.message}\n\n_Use /complete to mark as done_"
