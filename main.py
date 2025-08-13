@@ -27,6 +27,7 @@ from contextlib import asynccontextmanager
 from fastapi import Request, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -80,6 +81,24 @@ app = FastAPI(title="MySecondMind Bot", version="1.0.0", lifespan=lifespan)
 
 # Templates
 templates = Jinja2Templates(directory="templates")
+
+# CORS (for external dashboard like Vercel)
+try:
+    _origins = []
+    for key in ("DASHBOARD_ORIGIN", "VERCEL_ORIGIN"):
+        val = (os.getenv(key) or "").strip()
+        if val:
+            _origins.append(val)
+    if _origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=_origins,
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "PATCH", "DELETE"],
+            allow_headers=["*"],
+        )
+except Exception:
+    pass
 
 # --- Simple session helper (placeholder until Telegram Login wired) ---
 def get_current_user_id(request: Request) -> str:
