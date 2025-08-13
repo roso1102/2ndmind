@@ -218,14 +218,17 @@ Remember: Be conversational, helpful, and intelligent. Think like ChatGPT!
                 return any(k in s for k in ["quota", "429", "safety", "timeout", "rate", "unavailable"]) or isinstance(err, TimeoutError)
 
             # Primary then fallback
+            provider_used = None
             if primary == 'GEMINI' and self.gemini_client_ready:
                 try:
                     response = _call_gemini()
+                    provider_used = 'GEMINI'
                     logger.info("✅ Using Gemini (flash)")
                 except Exception as e:
                     last_error = e
                     if fallback == 'GROQ' and self.groq_client is not None and _should_fallback(e):
                         response = _call_groq()
+                        provider_used = 'GROQ'
                         logger.info("🔄 Fallback to Groq (llama-3.1-8b-instant)")
                     else:
                         raise e
@@ -233,14 +236,22 @@ Remember: Be conversational, helpful, and intelligent. Think like ChatGPT!
                 # Default Groq
                 try:
                     response = _call_groq()
+                    provider_used = 'GROQ'
                     logger.info("✅ Using Groq (llama-3.1-8b-instant)")
                 except Exception as e:
                     last_error = e
                     if fallback == 'GEMINI' and self.gemini_client_ready and _should_fallback(e):
                         response = _call_gemini()
+                        provider_used = 'GEMINI'
                         logger.info("🔄 Fallback to Gemini (flash)")
                     else:
                         raise e
+
+            # Emit clear info logs for observability
+            try:
+                logger.info(f"LLM(Chat) provider={provider_used} primary={primary} fallback={fallback}")
+            except Exception:
+                pass
             
             result_text = response.choices[0].message.content.strip()
             

@@ -317,19 +317,29 @@ Respond with compact valid JSON ONLY, no prose:
         def _should_fallback(err: Exception) -> bool:
             s = str(err).lower()
             return any(k in s for k in ["quota", "429", "safety", "timeout", "rate", "unavailable"]) or isinstance(err, TimeoutError)
+        provider_used = 'GROQ'
         if primary == 'GEMINI' and os.getenv('GEMINI_API_KEY'):
             try:
                 response = _call_gemini()
+                provider_used = 'GEMINI'
                 logger.debug("Using model: gemini-1.5-flash")
             except Exception as e:
                 if fallback == 'GROQ' and self.groq_client is not None and _should_fallback(e):
                     response = _call_groq()
+                    provider_used = 'GROQ'
                     logger.debug("Fallback to model: llama-3.1-8b-instant")
                 else:
                     raise e
         else:
             response = _call_groq()
+            provider_used = 'GROQ'
             logger.debug("Using model: llama-3.1-8b-instant")
+
+        # Emit a clear info log for observability
+        try:
+            logger.info(f"LLM(Classify) provider={provider_used} primary={primary} fallback={fallback}")
+        except Exception:
+            pass
         
         result_text = response.choices[0].message.content.strip()
         
