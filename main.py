@@ -8,6 +8,7 @@ import os
 import logging
 import httpx
 import time
+import secrets
 from datetime import datetime
 from fastapi import FastAPI, Request, BackgroundTasks
 from dotenv import load_dotenv
@@ -185,6 +186,63 @@ async def auth_telegram(request: Request):
 
     target = os.getenv("DASHBOARD_ORIGIN", "") or os.getenv("VERCEL_ORIGIN", "") or "/"
     # Prefer redirect to /app.html on dashboard
+    redirect_url = f"{target.rstrip('/')}/app.html" if target.startswith("http") else "/dashboard"
+    resp = RedirectResponse(url=redirect_url, status_code=302)
+    resp.set_cookie(
+        key=_COOKIE_NAME,
+        value=token,
+        max_age=_COOKIE_MAX_AGE,
+        expires=_COOKIE_MAX_AGE,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+    )
+    return resp
+
+_LINK_TTL_SECONDS = 10 * 60  # 10 minutes
+_link_codes = {}
+
+
+def _generate_link_code() -> str:
+    # Human-friendly 6-digit numeric code
+    return f"{secrets.randbelow(10**6):06d}"
+
+
+@app.post("/auth/start-link")
+async def auth_start_link():
+    """Create a short-lived link code for manual account linking.
+    Frontend shows this code; user sends '/link CODE' to the bot to complete.
+    """
+    code = _generate_link_code()
+    _link_codes[code] = {
+        "created": int(time.time()),
+        "user_id": None,
+        "used": False,
+    }
+    return {"code": code, "expires_in": _LINK_TTL_SECONDS}
+
+
+@app.get("/auth/check-link")
+async def auth_check_link(code: str):
+    """If the code has been confirmed by the bot, set session cookie and redirect."""
+    entry = _link_codes.get(code)
+    now = int(time.time())
+    if not entry:
+        raise HTTPException(status_code=404, detail="Invalid code")
+    if entry["used"] or now - entry["created"] > _LINK_TTL_SECONDS:
+        # Expired or already used
+        _link_codes.pop(code, None)
+        raise HTTPException(status_code=410, detail="Code expired")
+    if not entry["user_id"]:
+        # Not linked yet
+        return {"linked": False}
+
+    # Linked: issue cookie and redirect
+    expires = int(_time()) + _COOKIE_MAX_AGE
+    token = _sign_session(entry["user_id"], expires)
+    entry["used"] = True
+    target = os.getenv("DASHBOARD_ORIGIN", "") or os.getenv("VERCEL_ORIGIN", "") or "/"
     redirect_url = f"{target.rstrip('/')}/app.html" if target.startswith("http") else "/dashboard"
     resp = RedirectResponse(url=redirect_url, status_code=302)
     resp.set_cookie(
@@ -640,6 +698,30 @@ Just talk to me naturally! I understand:
                     
                 elif cmd == "/health":
                     await send_message(chat_id, "🟢 Bot is healthy and running!")
+                    return {"ok": True}
+
+                elif cmd == "/link":
+                    try:
+                        parts = text.split()
+                        if len(parts) < 2:
+                            await send_message(chat_id, "Usage: /link 123456\nGet a code from the web dashboard login page and send it here.")
+                            return {"ok": True}
+                        code = parts[1].strip()
+                        entry = _link_codes.get(code)
+                        now = int(_time())
+                        if not entry:
+                            await send_message(chat_id, "❌ Invalid code. Please create a new one from the web page and try again.")
+                            return {"ok": True}
+                        if entry.get("used") or now - entry.get("created", 0) > _LINK_TTL_SECONDS:
+                            _link_codes.pop(code, None)
+                            await send_message(chat_id, "⌛ Code expired. Please generate a new code on the web page and try again.")
+                            return {"ok": True}
+                        # Link this code to current Telegram user
+                        entry["user_id"] = str(user_id)
+                        await send_message(chat_id, "✅ Linked! Return to the website and continue. You can close this chat if you like.")
+                    except Exception as e:
+                        log(f"❌ Error in /link: {e}", "ERROR")
+                        await send_message(chat_id, "❌ Failed to link. Please create a new code and try again.")
                     return {"ok": True}
                 
                 # View commands
