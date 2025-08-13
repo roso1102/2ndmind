@@ -61,6 +61,7 @@ class AdvancedAI:
     
     def __init__(self):
         self.groq_client = None
+        self.gemini_client_ready = False
         self.conversation_contexts = {}  # In-memory cache for active conversations
         
         # Initialize Groq client
@@ -73,6 +74,11 @@ class AdvancedAI:
                 logger.error(f"❌ Failed to initialize Groq: {e}")
         else:
             logger.warning("⚠️ GROQ_API_KEY not found. Advanced AI features disabled.")
+
+        # Initialize Gemini client (lazy flag only; actual init happens at call)
+        if os.getenv('GEMINI_API_KEY'):
+            self.gemini_client_ready = True
+            logger.info("✅ Gemini API key detected (gemini-1.5-flash primary enabled)")
     
     async def process_message(self, user_id: str, message: str, context: Optional[ConversationContext] = None) -> AIResponse:
         """Process user message with advanced AI understanding."""
@@ -168,17 +174,73 @@ Remember: Be conversational, helpful, and intelligent. Think like ChatGPT!
 """
 
         try:
-            # Fixed model selection for stability and lower resource usage
-            response = self.groq_client.chat.completions.create(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": main_prompt}
-                ],
-                model="llama-3.1-8b-instant",
-                temperature=0.3,
-                max_tokens=500
-            )
-            logger.info("✅ Successfully using model: llama-3.1-8b-instant")
+            primary = (os.getenv('LLM_PRIMARY') or 'GROQ').upper()
+            fallback = (os.getenv('LLM_FALLBACK') or 'GROQ').upper()
+            last_error = None
+
+            def _call_groq():
+                return self.groq_client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": main_prompt}
+                    ],
+                    model="llama-3.1-8b-instant",
+                    temperature=0.3,
+                    max_tokens=500
+                )
+
+            def _call_gemini():
+                import google.generativeai as genai
+                genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+                model = genai.GenerativeModel("gemini-1.5-flash")
+                resp = model.generate_content(
+                    [
+                        {"role": "user", "parts": [
+                            f"SYSTEM:\n{system_prompt}\n\nUSER:\n{main_prompt}"
+                        ]}
+                    ],
+                    generation_config={
+                        "temperature": 0.3,
+                        "max_output_tokens": 600,
+                        "response_mime_type": "text/plain"
+                    }
+                )
+                class Obj:
+                    pass
+                o = Obj()
+                # Normalize to Groq-like object
+                text = resp.text or ""
+                o.choices = [type('C', (), {"message": type('M', (), {"content": text})})]
+                return o
+
+            def _should_fallback(err: Exception) -> bool:
+                s = str(err).lower()
+                return any(k in s for k in ["quota", "429", "safety", "timeout", "rate", "unavailable"]) or isinstance(err, TimeoutError)
+
+            # Primary then fallback
+            if primary == 'GEMINI' and self.gemini_client_ready:
+                try:
+                    response = _call_gemini()
+                    logger.info("✅ Using Gemini (flash)")
+                except Exception as e:
+                    last_error = e
+                    if fallback == 'GROQ' and self.groq_client is not None and _should_fallback(e):
+                        response = _call_groq()
+                        logger.info("🔄 Fallback to Groq (llama-3.1-8b-instant)")
+                    else:
+                        raise e
+            else:
+                # Default Groq
+                try:
+                    response = _call_groq()
+                    logger.info("✅ Using Groq (llama-3.1-8b-instant)")
+                except Exception as e:
+                    last_error = e
+                    if fallback == 'GEMINI' and self.gemini_client_ready and _should_fallback(e):
+                        response = _call_gemini()
+                        logger.info("🔄 Fallback to Gemini (flash)")
+                    else:
+                        raise e
             
             result_text = response.choices[0].message.content.strip()
             

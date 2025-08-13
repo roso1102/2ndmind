@@ -292,14 +292,44 @@ Respond with compact valid JSON ONLY, no prose:
 }}
 """
 
-        # Fixed model for consistency and speed
-        response = self.groq_client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model="llama-3.1-8b-instant",
-            temperature=0.1,
-            max_tokens=180
-        )
-        logger.debug("Using model: llama-3.1-8b-instant")
+        # Primary/fallback between Gemini Flash and Groq
+        primary = (os.getenv('LLM_PRIMARY') or 'GROQ').upper()
+        fallback = (os.getenv('LLM_FALLBACK') or 'GROQ').upper()
+        def _call_groq():
+            return self.groq_client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama-3.1-8b-instant",
+                temperature=0.1,
+                max_tokens=180
+            )
+        def _call_gemini():
+            import google.generativeai as genai
+            genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            resp = model.generate_content(
+                [{"role": "user", "parts": [prompt]}],
+                generation_config={"temperature": 0.1, "response_mime_type": "application/json", "max_output_tokens": 220}
+            )
+            class Obj: pass
+            o = Obj()
+            o.choices = [type('C', (), {"message": type('M', (), {"content": resp.text or ''})})]
+            return o
+        def _should_fallback(err: Exception) -> bool:
+            s = str(err).lower()
+            return any(k in s for k in ["quota", "429", "safety", "timeout", "rate", "unavailable"]) or isinstance(err, TimeoutError)
+        if primary == 'GEMINI' and os.getenv('GEMINI_API_KEY'):
+            try:
+                response = _call_gemini()
+                logger.debug("Using model: gemini-1.5-flash")
+            except Exception as e:
+                if fallback == 'GROQ' and self.groq_client is not None and _should_fallback(e):
+                    response = _call_groq()
+                    logger.debug("Fallback to model: llama-3.1-8b-instant")
+                else:
+                    raise e
+        else:
+            response = _call_groq()
+            logger.debug("Using model: llama-3.1-8b-instant")
         
         result_text = response.choices[0].message.content.strip()
         
