@@ -251,41 +251,9 @@ class NotificationScheduler:
         except Exception as e:
             logger.warning(f"⚠️ Scheduler init skipped (will rely on DB polling): {e}")
         
-        # Try to schedule in APScheduler as backup/optimization
-        if self.scheduler:
-            try:
-                job_id = f"notification_{notification.id}"
-                
-                # Create trigger based on notification type
-                if notification.recurring_pattern:
-                    trigger = self._create_recurring_trigger(notification.scheduled_time, notification.recurring_pattern)
-                else:
-                    trigger = DateTrigger(run_date=notification.scheduled_time)
-                
-                # Schedule the job
-                self.scheduler.add_job(
-                    self._send_notification,
-                    trigger,
-                    args=[notification],
-                    id=job_id,
-                    max_instances=1,
-                    replace_existing=True
-                )
-                
-                # Store job info
-                self.active_jobs[job_id] = {
-                    'notification_id': notification.id,
-                    'user_id': notification.user_id,
-                    'type': notification.notification_type,
-                    'scheduled_time': notification.scheduled_time
-                }
-                
-                logger.info(f"📅 Scheduled {notification.notification_type} for user {notification.user_id} at {notification.scheduled_time} (DB + APScheduler)")
-                
-            except Exception as e:
-                logger.warning(f"⚠️ APScheduler failed, but notification saved to DB: {e}")
-        else:
-            logger.info(f"📝 Notification saved to database for manual processing (APScheduler unavailable)")
+        # Do NOT add per-notification APScheduler date jobs to avoid duplicates.
+        # Delivery is handled by the background poller (and precise in-memory timers below).
+        logger.info("📝 Notification saved; delivery handled by poller/precise timers (no APScheduler date job)")
 
         # Optional: precise near-term timer for sub-minute accuracy
         try:
