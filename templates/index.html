@@ -8,22 +8,22 @@
 </head>
 <body class="bg-gray-50 text-gray-900">
   <div class="max-w-xl mx-auto py-24 text-center space-y-6">
-    <h1 class="text-3xl font-bold">MySecondMind</h1>
-    <p class="text-gray-600">Your AI‑powered second brain. Save notes, tasks, links, and set reminders.</p>
-    <div>
-      <!-- Telegram Login: redirect to API auth endpoint -->
-      <a id="tgLogin" class="inline-block bg-blue-600 text-white px-6 py-3 rounded shadow hover:bg-blue-700" href="#">Login with Telegram</a>
-    </div>
-  </div>
+  <h1 class="text-3xl font-bold">MySecondMind</h1>
+  <p class="text-gray-600">Your AI‑powered second brain. Save notes, tasks, links, and set reminders.</p>
+  <div id="tg-login"></div>
+</div>
 
-  <script>
-    // Configure your API origin here for local testing; on Vercel you’ll set it build-time or inline-edit
-    const API_ORIGIN = 'https://YOUR-RENDER-API';
-    document.getElementById('tgLogin').addEventListener('click', () => {
-      // Redirect to API which will handle Telegram login, set cookie, and bounce back to app.html
-      window.location.href = `${API_ORIGIN}/auth/telegram`;
-    });
-  </script>
+<script>
+  const API_ORIGIN = 'https://mymind-924q.onrender.com'; // your Render URL, no trailing slash
+  const botUsername = 'mysecondmind_assistant_bot'; // exact bot username from BotFather, without @
+
+  const s = document.createElement('script');
+  s.async = true;
+  s.src = 'https://telegram.org/js/telegram-widget.js?22';
+  s.setAttribute('data-telegram-login', botUsername);
+  s.setAttribute('data-size', 'large');
+  s.setAttribute('data-auth-url', `${API_ORIGIN}/auth/telegram`);
+  document.getElementById('tg-login').appendChild(s);
+</script>
 </body>
 </html>
-
