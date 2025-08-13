@@ -163,6 +163,33 @@ def _verify_telegram_login(params: dict) -> _Tuple[bool, str]:
         return False, ""
 
 
+def _debug_telegram_verification(params: dict) -> dict:
+    """Return detailed verification info for debugging Telegram Login.
+    This does not log secrets unless explicitly requested via a guarded endpoint.
+    """
+    try:
+        received_hash = params.get("hash", "")
+        data = {k: v for k, v in params.items() if k != "hash"}
+        check_lines = [f"{k}={data[k]}" for k in sorted(data.keys())]
+        data_check_string = "\n".join(check_lines)
+        bot_token = os.getenv("TELEGRAM_TOKEN") or ""
+        secret_key = _hashlib.sha256(bot_token.encode()).digest() if bot_token else b""
+        computed_hash = _hmac.new(secret_key, data_check_string.encode(), _hashlib.sha256).hexdigest() if bot_token else ""
+        ok = bool(bot_token) and _hmac.compare_digest(computed_hash, received_hash)
+        user = data.get("id") or data.get("user[id]") or ""
+        return {
+            "ok": ok,
+            "user_id": str(user) if user else "",
+            "has_token": bool(bot_token),
+            "received_hash_present": bool(received_hash),
+            "computed_hash": computed_hash,
+            "received_hash": received_hash,
+            "data_keys": sorted(list(data.keys())),
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 @app.get("/api/me")
 async def api_me(request: Request):
     token = request.cookies.get(_COOKIE_NAME, "")
@@ -177,6 +204,13 @@ async def auth_telegram(request: Request):
     # Telegram passes all params on query string
     params = dict(request.query_params)
     ok, user_id = _verify_telegram_login(params)
+    if not ok:
+        try:
+            # Soft debug: log only parameter keys to avoid PII
+            _keys = sorted(list(dict(request.query_params).keys()))
+            log(f"Telegram login failed, param keys: {_keys}", "WARNING")
+        except Exception:
+            pass
     if not ok or not user_id:
         raise HTTPException(status_code=401, detail="Telegram verification failed")
 
@@ -199,6 +233,27 @@ async def auth_telegram(request: Request):
         path="/",
     )
     return resp
+
+
+@app.get("/debug/telegram-login")
+async def debug_telegram_login(request: Request):
+    """Debug endpoint for Telegram Login verification.
+    Guarded by env DEBUG_TELEGRAM_KEY. Usage:
+    /debug/telegram-login?key=YOUR_KEY&<telegram_params>
+    """
+    guard_key = (os.getenv("DEBUG_TELEGRAM_KEY") or "").strip()
+    if not guard_key:
+        raise HTTPException(status_code=404, detail="Not found")
+    if (request.query_params.get("key") or "").strip() != guard_key:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    params = dict(request.query_params)
+    params.pop("key", None)
+    return _debug_telegram_verification(params)
+
+
+@app.get("/telegram-test", response_class=HTMLResponse)
+async def telegram_test(request: Request):
+    return templates.TemplateResponse("telegram_test.html", {"request": request})
 
 _LINK_TTL_SECONDS = 10 * 60  # 10 minutes
 _link_codes = {}
@@ -237,6 +292,18 @@ async def auth_check_link(code: str):
     if not entry["user_id"]:
         # Not linked yet
         return {"linked": False}
+
+    # Linked: ensure user exists in Supabase (idempotent)
+    try:
+        from models.user_management import user_manager
+        uid = entry["user_id"]
+        try:
+            if not user_manager.is_user_registered(uid):
+                user_manager.register_user(uid)
+        except Exception:
+            pass
+    except Exception:
+        pass
 
     # Linked: issue cookie and redirect
     expires = int(_time()) + _COOKIE_MAX_AGE
@@ -591,7 +658,17 @@ async def handle_telegram_webhook(request: Request):
                 log(f"🎯 ENTERING COMMAND PROCESSING BLOCK")
                 
                 if cmd == "/start":
-                    await send_message(chat_id, "👋 Welcome to MySecondMind!\n\nI'm your AI-powered personal assistant. I can help you with:\n• Task management\n• Information storage\n• Smart responses\n\nUse /register to activate your account and get started!")
+                    # Deep-link payload support: /start link_<CODE>
+                    parts = text.split(maxsplit=1)
+                    if len(parts) > 1 and parts[1].startswith("link_"):
+                        code = parts[1].split("link_", 1)[1].strip()
+                        entry = _link_codes.get(code)
+                        now = int(_time())
+                        if entry and not entry.get("used") and now - entry.get("created", 0) <= _LINK_TTL_SECONDS:
+                            entry["user_id"] = str(user_id)
+                            await send_message(chat_id, "✅ Linked! Return to the website and continue.")
+                            return {"ok": True}
+                    await send_message(chat_id, "👋 Welcome to MySecondMind!\n\nUse /register to activate your account, or generate a code on the website and send /link <code> here.")
                     return {"ok": True}
                     
                 elif cmd == "/help":

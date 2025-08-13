@@ -8,22 +8,59 @@
 </head>
 <body class="bg-gray-50 text-gray-900">
   <div class="max-w-xl mx-auto py-24 text-center space-y-6">
-  <h1 class="text-3xl font-bold">MySecondMind</h1>
-  <p class="text-gray-600">Your AI‑powered second brain. Save notes, tasks, links, and set reminders.</p>
-  <div id="tg-login"></div>
-</div>
+    <h1 class="text-3xl font-bold">MySecondMind</h1>
+    <p class="text-gray-600">Your AI‑powered second brain. Save notes, tasks, links, and set reminders.</p>
+    <div id="tg-login" class="space-y-3"></div>
 
-<script>
-  const API_ORIGIN = 'https://mymind-924q.onrender.com'; // your Render URL, no trailing slash
-  const botUsername = 'mysecondmind_assistant_bot'; // exact bot username from BotFather, without @
+    <div class="text-gray-400">— or —</div>
 
-  const s = document.createElement('script');
-  s.async = true;
-  s.src = 'https://telegram.org/js/telegram-widget.js?22';
-  s.setAttribute('data-telegram-login', botUsername);
-  s.setAttribute('data-size', 'large');
-  s.setAttribute('data-auth-url', `${API_ORIGIN}/auth/telegram`);
-  document.getElementById('tg-login').appendChild(s);
-</script>
+    <div class="space-y-3">
+      <button id="getCode" class="bg-blue-600 text-white px-6 py-3 rounded">Get login code</button>
+      <div id="codeBox" class="hidden space-y-2">
+        <p class="text-sm">Send this in Telegram: <code class="font-mono bg-gray-100 px-2 py-1 rounded">/link <span id="codeValue"></span></code></p>
+        <a id="openBot" class="inline-block bg-gray-900 text-white px-4 py-2 rounded" target="_blank" rel="noopener">Open Telegram</a>
+        <button id="checkLink" class="bg-gray-700 text-white px-4 py-2 rounded">I’ve linked – continue</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_ORIGIN = 'https://mymind-924q.onrender.com';
+    const botUsername = 'mysecondmind_assistant_bot'; // no @
+
+    // Telegram widget (optional)
+    try {
+      const s = document.createElement('script');
+      s.async = true;
+      s.src = 'https://telegram.org/js/telegram-widget.js?22';
+      s.setAttribute('data-telegram-login', botUsername);
+      s.setAttribute('data-size', 'large');
+      s.setAttribute('data-auth-url', `${API_ORIGIN}/auth/telegram`);
+      document.getElementById('tg-login').appendChild(s);
+    } catch {}
+
+    // Code-based linking with deep link
+    const getCodeBtn = document.getElementById('getCode');
+    const codeBox = document.getElementById('codeBox');
+    const codeValue = document.getElementById('codeValue');
+    const checkBtn = document.getElementById('checkLink');
+    const openBot = document.getElementById('openBot');
+
+    let currentCode = '';
+
+    getCodeBtn.addEventListener('click', async () => {
+      const res = await fetch(`${API_ORIGIN}/auth/start-link`, { method: 'POST' });
+      const data = await res.json();
+      currentCode = data.code;
+      codeValue.textContent = currentCode;
+      openBot.href = `https://t.me/${botUsername}?start=link_${encodeURIComponent(currentCode)}`;
+      codeBox.classList.remove('hidden');
+    });
+
+    checkBtn.addEventListener('click', async () => {
+      if (!currentCode) return;
+      window.location.href = `${API_ORIGIN}/auth/check-link?code=${encodeURIComponent(currentCode)}`;
+    });
+  </script>
 </body>
 </html>
