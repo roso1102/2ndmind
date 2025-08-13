@@ -413,6 +413,11 @@ Respond with compact valid JSON ONLY, no prose:
         question_keywords = ['what did i save', 'find', 'search', 'what do i have', 'show me', 'help me find']
         if any(keyword in message_lower for keyword in question_keywords) or '?' in message_lower:
             return {"intent": "SEARCH", "confidence": 0.75, "reasoning": "Search or question keywords detected"}
+
+        # Help/FAQ keywords
+        help_keywords = ['help', 'how do i', 'how to', 'what can you do', 'commands', 'features', 'guide']
+        if any(keyword in message_lower for keyword in help_keywords):
+            return {"intent": "HELP", "confidence": 0.85, "reasoning": "Help/FAQ keywords detected"}
         
         # Note keywords (saving information, ideas)
         note_keywords = ['note', 'remember', 'save', 'keep', 'record', 'write down', 'important', 'idea', 'thought', 'learned', 'i have an idea', 'thinking about', 'discovered']
@@ -1071,8 +1076,8 @@ async def handle_other_intent(update, context, message: str, classification: Dic
         await handle_greeting_intent(update, context, message, classification)
         return
     
-    # For truly unclassified messages, be more helpful
-    response = f"🤔 **I'm not quite sure how to help with that** (confidence: {confidence:.0%})\n\n"
+    # For truly unclassified messages, provide a helpful mini-help with quick actions
+    response = f"🤔 **Not sure what you need** (confidence: {confidence:.0%})\n\n"
     response += f"You said: *{message}*\n\n"
     
     # Check if user has content to give better suggestions
@@ -1085,18 +1090,18 @@ async def handle_other_intent(update, context, message: str, classification: Dic
         has_content = False
     
     if has_content:
-        response += "**� Here's what I can definitely help with:**\n\n"
-        response += "• `/notes` - Show your saved notes\n"
-        response += "• `/tasks` - Show your tasks\n"
-        response += "• `/links` - Show your saved links\n"
-        response += "• `/search <query>` - Search your content\n"
-        response += "• `/help` - See all commands\n\n"
+        response += "**Here are quick commands you can use:**\n\n"
+        response += "• `/notes` show recent notes\n"
+        response += "• `/tasks` show tasks\n"
+        response += "• `/links` show links\n"
+        response += "• `/search <query>` search your content\n"
+        response += "• `/help` see all commands\n\n"
         response += "**Or try saying:**\n"
         response += "• \"Show me my recent notes\"\n"
         response += "• \"What did I save today?\"\n"
         response += "• \"I learned something new...\"\n"
     else:
-        response += "**� Let's get you started! Try:**\n\n"
+        response += "**Let's get you started! Try:**\n\n"
         response += "• \"I learned that Python is great for automation\"\n"
         response += "• \"Task: Finish my project by Friday\"\n"
         response += "• \"https://example.com interesting article\"\n"
