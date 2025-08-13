@@ -570,6 +570,11 @@ class NotificationScheduler:
                     notification_type='evening_summary',
                     scheduled_time=datetime.now(timezone.utc)
                 )
+                # Persist first for cross-process idempotency, ignore errors
+                try:
+                    await self._save_notification_to_db(notification)
+                except Exception:
+                    pass
                 await self._send_notification(notification)
                 
         except Exception as e:
@@ -583,19 +588,27 @@ class NotificationScheduler:
             # Get today's activity
             today_activity = await self._get_today_activity(user_id)
             
+            has_any = False
             if today_activity.get('saves', 0) > 0:
                 summary_parts.append(f"📝 You saved {today_activity['saves']} items today")
+                has_any = True
             
             if today_activity.get('completed_tasks', 0) > 0:
                 summary_parts.append(f"✅ Completed {today_activity['completed_tasks']} tasks")
+                has_any = True
             
             if today_activity.get('searches', 0) > 0:
                 summary_parts.append(f"🔍 Performed {today_activity['searches']} searches")
+                has_any = True
             
             # Add brief content highlights
             highlights = await self._get_content_highlights(user_id)
             if highlights:
                 summary_parts.append(f"\n💡 **Today's Highlights**:\n{highlights}")
+                has_any = True
+
+            if not has_any:
+                summary_parts.append("📭 No new activity today")
             
             summary_parts.append("\n🎯 Ready for tomorrow? Set some goals for a productive day ahead!")
             
