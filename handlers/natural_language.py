@@ -511,11 +511,13 @@ async def handle_advanced_reminder_saving(update, content_data: dict) -> None:
                 }
             return
         
-        # Parse the time with user's timezone and normalize to UTC
+        # Parse the time with the user's saved timezone and normalize to UTC
         from core.time_parser import parse_time_expression
+        from core.user_prefs import get_user_timezone
         import pytz as _pytz
-        logger.info(f"🔍 DEBUG: About to parse time: '{time_str}' (tz=Asia/Kolkata)")
-        parsed_time = await parse_time_expression(time_str, user_timezone='Asia/Kolkata')
+        user_tz = get_user_timezone(user_id)
+        logger.info(f"🔍 DEBUG: About to parse time: '{time_str}' (tz={user_tz})")
+        parsed_time = await parse_time_expression(time_str, user_timezone=user_tz)
         logger.info(f"🔍 DEBUG: Parsed time result: {parsed_time}")
         
         if parsed_time and parsed_time.get('datetime'):
@@ -527,7 +529,7 @@ async def handle_advanced_reminder_saving(update, content_data: dict) -> None:
             _dt = parsed_time['datetime']
             if _dt.tzinfo is None:
                 try:
-                    _dt = _pytz.timezone('Asia/Kolkata').localize(_dt)
+                    _dt = _pytz.timezone(user_tz).localize(_dt)
                 except Exception:
                     pass
             dt_utc = _dt.astimezone(_pytz.UTC)

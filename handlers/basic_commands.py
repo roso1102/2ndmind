@@ -7,6 +7,7 @@ Handles /start, /help, and /status commands.
 from telegram import Update
 from telegram.ext import ContextTypes
 import os
+from core.user_prefs import set_user_timezone
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /start command."""
@@ -116,3 +117,16 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Please check your bot configuration.",
             parse_mode='Markdown'
         )
+
+async def timezone_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /timezone <IANA_TZ>. Example: /timezone Asia/Kolkata"""
+    user_id = str(update.effective_user.id)
+    if not context.args:
+        await update.message.reply_text("Usage: /timezone Asia/Kolkata")
+        return
+    tz_name = " ".join(context.args).strip()
+    ok = set_user_timezone(user_id, tz_name)
+    if ok:
+        await update.message.reply_text(f"✅ Timezone set to {tz_name}")
+    else:
+        await update.message.reply_text("❌ Invalid timezone. Please provide a valid IANA timezone like Asia/Kolkata")

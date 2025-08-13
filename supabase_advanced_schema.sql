@@ -70,6 +70,15 @@ CREATE INDEX IF NOT EXISTS idx_notifications_scheduled
 CREATE INDEX IF NOT EXISTS idx_notifications_user_type 
     ON notifications(user_id, notification_type, created_at DESC);
 
+-- 2b. USER PREFERENCES (timezone)
+CREATE TABLE IF NOT EXISTS user_preferences (
+    user_id TEXT PRIMARY KEY,
+    timezone TEXT DEFAULT 'Asia/Kolkata',
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_prefs_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+
 -- ============================================================================
 -- 3. CONTENT EMBEDDINGS TABLE (for semantic search)
 -- ============================================================================
