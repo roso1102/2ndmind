@@ -10,7 +10,7 @@ import os
 import logging
 import asyncio
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 # Import content management
 from handlers.content_management import content_manager
@@ -46,6 +46,71 @@ def extract_search_term(message: str) -> Optional[str]:
             return search_term if search_term else None
     
     return None
+
+# --- Lightweight summarization & formatting helpers ---
+def _split_sentences(text: str) -> List[str]:
+    """Very simple sentence splitter robust to missing punctuation."""
+    if not text:
+        return []
+    # Normalize whitespace
+    text = re.sub(r"\s+", " ", str(text)).strip()
+    # Prefer punctuation-based split; fallback to chunking
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    # If no punctuation found, chunk by ~120 chars to keep readability
+    if len(sentences) <= 1:
+        chunk_size = 120
+        sentences = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
+    # Remove very short noise sentences
+    sentences = [s.strip() for s in sentences if len(s.strip()) > 2]
+    return sentences
+
+def _word_frequencies(text: str) -> Dict[str, int]:
+    """Compute simple word frequencies ignoring common stopwords."""
+    stop = set([
+        'the','and','or','but','in','on','at','to','for','of','with','by','a','an','is','it','that','this','as','be','are','was','were','from','has','have','had','not','no','yes','i','you','he','she','they','we','my','your','our'
+    ])
+    words = re.findall(r"[a-zA-Z0-9_']+", str(text).lower())
+    freq: Dict[str, int] = {}
+    for w in words:
+        if w in stop or len(w) <= 2:
+            continue
+        freq[w] = freq.get(w, 0) + 1
+    return freq
+
+def summarize_text(text: str, max_sentences: int = 3, max_chars: int = 500) -> str:
+    """Extractive summary by sentence scoring with word frequencies.
+    Keeps original order of the top-scoring sentences and trims length.
+    """
+    if not text:
+        return ""
+    sentences = _split_sentences(text)
+    if len(sentences) <= max_sentences:
+        summary = " ".join(sentences)
+        return summary[:max_chars]
+    freq = _word_frequencies(text)
+    # Score each sentence
+    scored: List[tuple] = []
+    for idx, s in enumerate(sentences):
+        words = re.findall(r"[a-zA-Z0-9_']+", s.lower())
+        score = sum(freq.get(w, 0) for w in words) / (len(words) + 1e-6)
+        scored.append((idx, score, s))
+    # Pick top sentences by score, then sort back by original index
+    top = sorted(scored, key=lambda t: t[1], reverse=True)[:max_sentences]
+    top_sorted = [s for idx, _, s in sorted(top, key=lambda t: t[0])]
+    summary = " ".join(top_sorted)
+    if len(summary) > max_chars:
+        summary = summary[:max_chars].rstrip() + "..."
+    return summary
+
+def _clean_text(text: str, max_len: Optional[int] = None) -> str:
+    if text is None:
+        return ""
+    text = str(text).replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+    text = ' '.join(text.split())
+    text = text.encode('utf-8', 'ignore').decode('utf-8')
+    if max_len and len(text) > max_len:
+        return text[:max_len] + "..."
+    return text
 
 # --- Deterministic pre-classifier (runs before AI) ---
 def pre_classify_message(message: str) -> Optional[Dict]:
@@ -665,68 +730,80 @@ async def handle_question_intent(update, context, message: str, classification: 
                 
                 if search_result.get("success") and search_result.get("results"):
                     results = search_result["results"]
-                    response = f"🔍 Found {len(results)} result(s) for '{search_term}':\n\n"
-                    
-                    for item in results:
+                    # Create session mapping so user can refer to items by number
+                    try:
+                        from handlers.session_manager import session_manager
+                        session_manager.create_content_mapping(user_id, results)
+                    except Exception:
+                        pass
+
+                    response = f"🔍 Found {len(results)} result(s) for '{_clean_text(search_term, 120)}':\n\n"
+
+                    def safe_date(dt_str: str) -> str:
+                        return dt_str[:10] if dt_str and isinstance(dt_str, str) and len(dt_str) >= 10 else 'Unknown'
+
+                    for idx, item in enumerate(results, 1):
                         content_type = item.get('content_type', 'unknown')
-                        content_id = item.get('id', 'unknown')
-                        title = item.get('title', 'Untitled')
-                        snippet = item.get('snippet', item.get('content', ''))
+                        title = _clean_text(item.get('title', 'Untitled'), 140)
+                        content = item.get('content', '') or ''
                         created_at = item.get('created_at', '')
-                        
-                        # Aggressive text cleaning and safety measures
-                        def clean_text(text):
-                            if not text:
-                                return ""
-                            # Convert to string and handle None values
-                            text = str(text)
-                            # Remove problematic characters
-                            text = text.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
-                            # Remove multiple spaces
-                            text = ' '.join(text.split())
-                            # Encode/decode to handle special characters
-                            text = text.encode('utf-8', 'ignore').decode('utf-8')
-                            # Limit length
-                            return text[:100] if len(text) > 100 else text
-                        
-                        title = clean_text(title)
-                        snippet = clean_text(snippet)
-                        
-                        # Format based on type with safer formatting
+
+                        # Header line with numbering
+                        icon = '📝' if content_type == 'note' else ('🔗' if content_type == 'link' else ('📋' if content_type == 'task' else ('⏰' if content_type == 'reminder' else '📄')))
+                        response += f"{icon} {idx}. {title}  (📅 {safe_date(created_at)})\n"
+
+                        # Body per type
                         if content_type == 'note':
-                            response += f"📝 Note [{content_id}]: {title}\n"
-                            response += f"   {snippet}\n"
+                            if len(content) <= 400:
+                                response += f"   {_clean_text(content, 600)}\n"
+                            else:
+                                summary = summarize_text(content, max_sentences=3, max_chars=400)
+                                response += f"   Summary: {_clean_text(summary, 500)}\n"
                         elif content_type == 'link':
-                            url = clean_text(item.get('url', ''))
-                            response += f"🔗 Link [{content_id}]: {title}\n"
+                            url = _clean_text(item.get('url', ''), 300)
                             response += f"   {url}\n"
+                            # Summarize any context stored in content (exclude trailing URL: part)
+                            context_only = content
+                            parts = re.split(r"\bURL:\s*", content, flags=re.IGNORECASE)
+                            if parts:
+                                context_only = parts[0].strip()
+                            if context_only:
+                                summary = summarize_text(context_only, max_sentences=2, max_chars=300)
+                                if summary:
+                                    response += f"   Context: {_clean_text(summary, 320)}\n"
                         elif content_type == 'task':
-                            completed = item.get('completed', False)
-                            status_emoji = '✅' if completed else '📋'
-                            response += f"{status_emoji} Task [{content_id}]: {title}\n"
-                            response += f"   {snippet}\n"
+                            completed = bool(item.get('completed', False))
+                            status = 'Done' if completed else 'Open'
+                            due = item.get('due_date')
+                            line = f"   Status: {status}"
+                            if due:
+                                line += f" • Due: {safe_date(str(due))}"
+                            response += line + "\n"
+                            preview = summarize_text(content, max_sentences=2, max_chars=240)
+                            if preview:
+                                response += f"   {_clean_text(preview, 260)}\n"
                         elif content_type == 'reminder':
-                            response += f"⏰ Reminder [{content_id}]: {title}\n"
-                            response += f"   {snippet}\n"
+                            preview = summarize_text(content, max_sentences=2, max_chars=240)
+                            if preview:
+                                response += f"   {_clean_text(preview, 260)}\n"
                         else:
-                            response += f"📄 {title}\n"
-                            response += f"   {snippet}\n"
-                        
-                        # Add date safely
-                        date_str = created_at[:10] if created_at and len(created_at) >= 10 else 'Unknown'
-                        response += f"   📅 {date_str}\n\n"
-                        
-                        # Prevent message from getting too long (more conservative limit)
+                            preview = summarize_text(content, max_sentences=2, max_chars=240)
+                            if preview:
+                                response += f"   {_clean_text(preview, 260)}\n"
+
+                        response += "\n"
+
+                        # Prevent message from getting too long
                         if len(response) > 3000:
-                            remaining = len(results) - (results.index(item) + 1)
+                            remaining = len(results) - idx
                             if remaining > 0:
                                 response += f"... and {remaining} more results.\n"
-                                response += f"Use /search {search_term} for complete results."
+                                response += f"Use /search { _clean_text(search_term, 120) } for complete results."
                             break
-                    
-                    # Only add "see more" if we haven't already truncated
-                    if len(results) >= 5 and len(response) <= 3000:
-                        response += f"Use /search {search_term} to see more results."
+
+                    # Actions hint
+                    if len(results) > 0 and len(response) <= 3500:
+                        response += "Manage: say 'delete 2', 'edit 3 <new text>', or run /search again."
                 else:
                     response = f"🔍 No results found for '{search_term}'.\n\n"
                     response += "Try:\n"
