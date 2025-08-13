@@ -257,9 +257,15 @@ async def auth_check_link(code: str):
     )
     return resp
 
-# --- Simple session helper (placeholder until Telegram Login wired) ---
+# --- Session helper: prefer signed cookie; fallback to query param for legacy URLs ---
 def get_current_user_id(request: Request) -> str:
-    # Temporary: allow user_id via query for quick testing; replace with Telegram auth cookie later
+    # 1) Try session cookie set by /auth/telegram or /auth/check-link
+    token = request.cookies.get(_COOKIE_NAME, "")
+    if token:
+        uid = _verify_session(token)
+        if uid:
+            return uid
+    # 2) Fallback: allow explicit user_id in query for manual testing
     user_id = request.query_params.get("user_id")
     return user_id or ""
 
