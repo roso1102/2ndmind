@@ -168,36 +168,17 @@ Remember: Be conversational, helpful, and intelligent. Think like ChatGPT!
 """
 
         try:
-            # Try larger models first, fallback to smaller ones
-            models_to_try = [
-                "llama-3.1-70b-versatile",  # Try original first
-                "llama-3.2-90b-text-preview",  # Newer large model
-                "llama-3.2-70b-preview",     # Alternative 70B
-                "mixtral-8x7b-32768",        # Mixtral (effective ~56B)
-                "llama-3.1-8b-instant"       # Fallback to 8B
-            ]
-            
-            last_error = None
-            for model in models_to_try:
-                try:
-                    response = self.groq_client.chat.completions.create(
-                        messages=[
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": main_prompt}
-                        ],
-                        model=model,
-                        temperature=0.3,
-                        max_tokens=500
-                    )
-                    logger.info(f"✅ Successfully using model: {model}")
-                    break  # Success, exit the loop
-                except Exception as e:
-                    last_error = e
-                    logger.debug(f"Model {model} failed: {e}")
-                    continue  # Try next model
-            else:
-                # All models failed
-                raise last_error
+            # Fixed model selection for stability and lower resource usage
+            response = self.groq_client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": main_prompt}
+                ],
+                model="llama-3.1-8b-instant",
+                temperature=0.3,
+                max_tokens=500
+            )
+            logger.info("✅ Successfully using model: llama-3.1-8b-instant")
             
             result_text = response.choices[0].message.content.strip()
             
