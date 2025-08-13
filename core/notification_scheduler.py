@@ -493,6 +493,11 @@ class NotificationScheduler:
                     notification_type='morning_brief',
                     scheduled_time=datetime.now(timezone.utc)
                 )
+                # Persist first for cross-process idempotency, ignore errors
+                try:
+                    await self._save_notification_to_db(notification)
+                except Exception:
+                    pass
                 await self._send_notification(notification)
                 
         except Exception as e:
