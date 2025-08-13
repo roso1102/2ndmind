@@ -136,6 +136,19 @@ def pre_classify_message(message: str) -> Optional[Dict]:
             'confidence': 0.95
         }
 
+    # If the user is asking ABOUT reminders (list/show/saved), treat as question, not creation
+    if (
+        re.search(r"\breminders?\b", lower)
+        and any(k in lower for k in ["what", "what's", "show", "list", "saved", "my"]) 
+        and not any(k in lower for k in ["remind me", "in ", " at "])
+    ):
+        return {
+            'type': 'question',
+            'title': msg,
+            'content': msg,
+            'confidence': 0.9
+        }
+
     # Detect reminder phrases (be conservative to avoid false positives like "I had apples today")
     reminder_triggers = ['remind me', 'reminder', 'alert me', 'notify me']
     strong_time_patterns = [
