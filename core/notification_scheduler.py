@@ -206,26 +206,24 @@ class NotificationScheduler:
             # Disabled: periodic pending processor to avoid early sends.
             # If re-enabled, ensure due-only guard inside the method.
             
-            # Generate morning briefings at 8 AM daily
+            # Check morning/evening windows every 5 minutes in Asia/Kolkata timezone
             self.scheduler.add_job(
                 self._generate_morning_briefings,
-                CronTrigger(hour=8, minute=0),
+                CronTrigger(minute='*/5', timezone='Asia/Kolkata'),
                 id='morning_briefings',
                 max_instances=1
             )
-            
-            # Generate evening summaries at 8 PM daily
             self.scheduler.add_job(
                 self._generate_evening_summaries,
-                CronTrigger(hour=20, minute=0),
+                CronTrigger(minute='*/5', timezone='Asia/Kolkata'),
                 id='evening_summaries',
                 max_instances=1
             )
             
-            # Random memory resurfacing throughout the day
+            # Random memory resurfacing throughout the day (Asia/Kolkata clock)
             self.scheduler.add_job(
                 self._resurface_random_memories,
-                IntervalTrigger(hours=6),  # Every 6 hours
+                IntervalTrigger(hours=6, timezone='Asia/Kolkata'),  # Every 6 hours
                 id='memory_resurfacing',
                 max_instances=1
             )
@@ -475,29 +473,26 @@ class NotificationScheduler:
     async def _generate_morning_briefings(self):
         """Generate morning briefings for all active users."""
         try:
-            logger.info("🌅 Generating morning briefings...")
-            
-            # Get all users who want morning briefings
+            import pytz
+            tz = pytz.timezone('Asia/Kolkata')
+            now_local = datetime.now(tz)
+            current = now_local.strftime('%H:%M')
+            logger.info(f"🌅 Morning brief check at {current} IST")
             users = await self._get_users_with_morning_briefings()
-            
             for user_data in users:
+                # For now all users use 08:00 IST
+                if current != '08:00':
+                    continue
                 user_id = user_data['user_id']
-                timezone = user_data.get('timezone', 'UTC')
-                brief_time = user_data.get('morning_brief_time', '08:00')
-                
-                # Generate personalized morning brief
-                brief_message = await self._create_morning_brief(user_id, timezone)
-                
-                # Create notification
+                brief_message = await self._create_morning_brief(user_id, 'Asia/Kolkata')
                 notification = NotificationTask(
                     id=f"morning_{user_id}_{datetime.now().strftime('%Y%m%d')}",
                     user_id=str(user_id),
                     title="Good Morning!",
                     message=brief_message,
                     notification_type='morning_brief',
-                    scheduled_time=datetime.now(timezone=timezone.utc)
+                    scheduled_time=datetime.now(timezone.utc)
                 )
-                
                 await self._send_notification(notification)
                 
         except Exception as e:
@@ -555,18 +550,18 @@ class NotificationScheduler:
     async def _generate_evening_summaries(self):
         """Generate evening summaries for all active users."""
         try:
-            logger.info("🌙 Generating evening summaries...")
-            
-            # Get all users who want evening summaries
+            import pytz
+            tz = pytz.timezone('Asia/Kolkata')
+            now_local = datetime.now(tz)
+            current = now_local.strftime('%H:%M')
+            logger.info(f"🌙 Evening summary check at {current} IST")
             users = await self._get_users_with_evening_summaries()
-            
             for user_data in users:
+                # Fire at 23:00 IST
+                if current != '23:00':
+                    continue
                 user_id = user_data['user_id']
-                
-                # Generate daily summary
                 summary_message = await self._create_evening_summary(user_id)
-                
-                # Create notification
                 notification = NotificationTask(
                     id=f"evening_{user_id}_{datetime.now().strftime('%Y%m%d')}",
                     user_id=str(user_id),
@@ -575,7 +570,6 @@ class NotificationScheduler:
                     notification_type='evening_summary',
                     scheduled_time=datetime.now(timezone.utc)
                 )
-                
                 await self._send_notification(notification)
                 
         except Exception as e:
@@ -752,49 +746,154 @@ class NotificationScheduler:
             logger.error(f"❌ Error marking notification as sent: {e}")
     
     async def _get_users_with_morning_briefings(self) -> List[Dict]:
-        """Get users who want morning briefings."""
-        # This would query user preferences
-        return []
+        """Get users who want morning briefings (basic: all active users, default Asia/Kolkata)."""
+        try:
+            from core.supabase_rest import supabase_rest
+            res = supabase_rest.table('users').select('*').eq('is_active', True).limit(500).execute()
+            users = []
+            if res and res.get('error') is None and res.get('data'):
+                for row in res['data']:
+                    users.append({
+                        'user_id': str(row['user_id']),
+                        'timezone': 'Asia/Kolkata',
+                        'morning_brief_time': '08:00'
+                    })
+            return users
+        except Exception as e:
+            logger.error(f"get_users_with_morning_briefings failed: {e}")
+            return []
     
     async def _get_users_with_evening_summaries(self) -> List[Dict]:
-        """Get users who want evening summaries."""
-        # This would query user preferences
-        return []
+        """Get users who want evening summaries (basic: all active users)."""
+        try:
+            from core.supabase_rest import supabase_rest
+            res = supabase_rest.table('users').select('*').eq('is_active', True).limit(500).execute()
+            users = []
+            if res and res.get('error') is None and res.get('data'):
+                for row in res['data']:
+                    users.append({'user_id': str(row['user_id'])})
+            return users
+        except Exception as e:
+            logger.error(f"get_users_with_evening_summaries failed: {e}")
+            return []
     
     async def _get_active_users(self) -> List[Dict]:
-        """Get all active users."""
-        # This would query the users table
-        return []
+        """Get all active users (basic)."""
+        try:
+            from core.supabase_rest import supabase_rest
+            res = supabase_rest.table('users').select('*').eq('is_active', True).limit(500).execute()
+            if res and res.get('error') is None and res.get('data'):
+                return [{'user_id': str(r['user_id'])} for r in res['data']]
+            return []
+        except Exception as e:
+            logger.error(f"get_active_users failed: {e}")
+            return []
     
     async def _get_task_summary(self, user_id: str) -> Optional[str]:
-        """Get summary of user's tasks."""
-        # This would query user's tasks
-        return None
+        """Get summary of user's tasks (basic counts)."""
+        try:
+            from core.supabase_rest import supabase_rest
+            res = supabase_rest.table('content').select('*').eq('user_id', user_id).eq('content_type', 'task').execute()
+            if res and res.get('error') is None and res.get('data') is not None:
+                total = len(res['data'])
+                if total:
+                    return f"{total} tasks in your list"
+            return None
+        except Exception as e:
+            logger.error(f"get_task_summary failed: {e}")
+            return None
     
     async def _get_recent_content_summary(self, user_id: str) -> Optional[str]:
-        """Get summary of recent content."""
-        # This would query recent user content
-        return None
+        """Get summary of recent content (last 5 items)."""
+        try:
+            from core.supabase_rest import supabase_rest
+            res = supabase_rest.table('content').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(5).execute()
+            if res and res.get('error') is None and res.get('data'):
+                titles = []
+                for r in res['data']:
+                    title = r.get('title') or (r.get('content') or '')[:30]
+                    ctype = r.get('content_type') or 'item'
+                    titles.append(f"{ctype}: {title}")
+                return ", ".join(titles)
+            return None
+        except Exception as e:
+            logger.error(f"get_recent_content_summary failed: {e}")
+            return None
     
     async def _get_today_activity(self, user_id: str) -> Dict:
-        """Get today's activity summary."""
-        # This would query usage analytics
-        return {'saves': 0, 'completed_tasks': 0, 'searches': 0}
+        """Get today's activity summary (basic: saves count)."""
+        try:
+            from core.supabase_rest import supabase_rest
+            # Assuming content.created_at is ISO; filter client-side basic
+            res = supabase_rest.table('content').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(100).execute()
+            saves = 0
+            if res and res.get('error') is None and res.get('data'):
+                from datetime import datetime
+                today = datetime.utcnow().date()
+                for r in res['data']:
+                    ts = str(r.get('created_at') or '')
+                    if ts:
+                        try:
+                            if ts.endswith('Z'):
+                                ts = ts.replace('Z', '+00:00')
+                            d = datetime.fromisoformat(ts).date()
+                            if d == today:
+                                saves += 1
+                        except Exception:
+                            pass
+            return {'saves': saves, 'completed_tasks': 0, 'searches': 0}
+        except Exception as e:
+            logger.error(f"get_today_activity failed: {e}")
+            return {'saves': 0, 'completed_tasks': 0, 'searches': 0}
     
     async def _get_content_highlights(self, user_id: str) -> Optional[str]:
-        """Get content highlights for the day."""
-        # This would analyze today's content
-        return None
+        """Get content highlights for the day (basic: latest 3 titles)."""
+        try:
+            from core.supabase_rest import supabase_rest
+            res = supabase_rest.table('content').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(3).execute()
+            if res and res.get('error') is None and res.get('data'):
+                lines = []
+                for r in res['data']:
+                    title = r.get('title') or (r.get('content') or '')[:50]
+                    lines.append(f"• {title}")
+                return "\n".join(lines)
+            return None
+        except Exception as e:
+            logger.error(f"get_content_highlights failed: {e}")
+            return None
     
     async def _should_resurface_memory(self, user_id: str, frequency: str) -> bool:
-        """Check if user should get memory resurfacing."""
-        # This would check resurfacing log and frequency
-        return random.random() < 0.3  # 30% chance for demo
+        """Check if user should get memory resurfacing (basic rules).
+        daily: 50% chance per run; weekly: 25%; monthly: 10%.
+        """
+        freq = (frequency or 'weekly').lower()
+        if freq == 'daily':
+            p = 0.5
+        elif freq == 'weekly':
+            p = 0.25
+        elif freq == 'monthly':
+            p = 0.1
+        else:
+            p = 0.2
+        return random.random() < p
     
     async def _get_random_memory(self, user_id: str) -> Optional[Dict]:
-        """Get a random old piece of content."""
-        # This would query old content with spaced repetition logic
-        return None
+        """Get a random older piece of content (basic heuristic)."""
+        try:
+            from core.supabase_rest import supabase_rest
+            res = supabase_rest.table('content').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(200).execute()
+            if res and res.get('error') is None and res.get('data'):
+                items = res['data']
+                if len(items) == 0:
+                    return None
+                # Prefer items not in the latest 10 to avoid showing very fresh content
+                pool = items[10:] if len(items) > 10 else items
+                import random as _r
+                return _r.choice(pool)
+            return None
+        except Exception as e:
+            logger.error(f"get_random_memory failed: {e}")
+            return None
     
     async def _manual_schedule(self, notification: NotificationTask) -> bool:
         """Manual scheduling when APScheduler is not available."""
