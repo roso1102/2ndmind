@@ -16,7 +16,7 @@ import logging
 import asyncio
 import random
 from datetime import datetime, timezone, timedelta, time
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any, Tuple, Set
 from dataclasses import dataclass, asdict
 
 logger = logging.getLogger(__name__)
@@ -58,6 +58,8 @@ class NotificationScheduler:
         self.weather_api_key = os.getenv('WEATHER_API_KEY')
         # In-memory precise timers for near-term notifications
         self._in_memory_timers: Dict[str, asyncio.Task] = {}
+        # In-process lock to prevent duplicate sends (poller vs precise timer)
+        self._sending_ids: Set[str] = set()
         
         # Initialize scheduler if available
         if SCHEDULER_AVAILABLE:
@@ -294,6 +296,21 @@ class NotificationScheduler:
     async def _send_notification(self, notification: NotificationTask):
         """Send a notification to the user."""
         try:
+            # In-process idempotency guard
+            if notification.id in self._sending_ids:
+                return
+            self._sending_ids.add(notification.id)
+            
+            # Ensure not already sent in DB (race guard)
+            try:
+                from core.supabase_rest import supabase_rest
+                check = supabase_rest.table('notifications').select('*').eq('id', notification.id).limit(1).execute()
+                if check and check.get('error') is None and check.get('data'):
+                    if check['data'][0].get('is_sent') is True:
+                        return
+            except Exception:
+                pass
+
             # Final timing guard: if we woke up early, wait until exact due time
             try:
                 now = datetime.now(timezone.utc)
@@ -327,6 +344,12 @@ class NotificationScheduler:
                 
         except Exception as e:
             logger.error(f"Error sending notification: {e}")
+        finally:
+            # Release in-process lock
+            try:
+                self._sending_ids.discard(notification.id)
+            except Exception:
+                pass
     
     async def _send_telegram_message(self, chat_id: str, text: str, parse_mode: str = None) -> bool:
         """Send a message to Telegram chat (avoiding circular import)."""
