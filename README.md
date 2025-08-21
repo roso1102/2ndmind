@@ -313,6 +313,7 @@ Natural language:
 - Links: “Read later: https://example.com”
 - Tasks: “Task: Review metrics” / “complete 2” / “delete 3”
 - Reminders: “Remind me to call mom at 6pm tomorrow”
+-Also ask "What did I save about "topicname"
 
 ---
 Made with ❤️ to help you remember, organize, and resurface what matters.
