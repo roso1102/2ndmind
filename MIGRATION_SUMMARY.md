@@ -1,6 +1,6 @@
-# 🔄 Migration Summary: Storage to Supabase
+# Migration Summary: Storage to Supabase
 
-## ✅ Changes Made
+## Changes Made
 
 ### 1. **Updated Dependencies**
 - Added/retained `supabase>=2.8.0` in `requirements.txt`
@@ -32,7 +32,7 @@
 ### 6. **Removed Legacy Files**
 - Notion/Obsidian integration files and alternate entrypoints removed
 
-## 🔧 Required Setup Steps
+## Required Setup Steps
 
 ### 1. Install Dependencies
 ```bash
@@ -50,7 +50,7 @@ pip install -r requirements.txt
 /register
 ```
 
-## 🎯 Benefits of Supabase
+## Benefits of Supabase
 
 1. **Cloud-Native**: No local database files to manage
 2. **Scalable**: Handles multiple users and concurrent access
@@ -59,7 +59,7 @@ pip install -r requirements.txt
 5. **Managed**: Automatic backups, scaling, and maintenance
 6. **API-First**: RESTful API and dashboard for data management
 
-## 🔄 Rollback Plan
+## Rollback Plan
 
 If needed to rollback to a previous storage solution, revert code changes in `models/user_management.py` and related setup files.
 
