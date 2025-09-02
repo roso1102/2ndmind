@@ -1,13 +1,13 @@
-# 🗄️ Supabase Setup Guide for MySecondMind
+# Supabase Setup Guide for MySecondMind
 
 This guide will help you set up Supabase as the database backend for MySecondMind user management.
 
-## 📋 Prerequisites
+## Prerequisites
 
 - A Supabase account (sign up at [supabase.com](https://supabase.com))
 - Basic familiarity with SQL
 
-## 🚀 Step-by-Step Setup
+## Step-by-Step Setup
 
 ### 1. Create a New Supabase Project
 
@@ -48,7 +48,7 @@ This guide will help you set up Supabase as the database backend for MySecondMin
 
 Run your bot and try the `/register` command to ensure Supabase connectivity is working.
 
-## 🔐 Security Configuration
+## Security Configuration
 
 ### Row Level Security (RLS)
 
@@ -59,9 +59,9 @@ The schema includes a basic RLS policy. For production, you should implement str
 - **SUPABASE_URL**: Your project URL (safe to expose to clients)
 - **SUPABASE_ANON_KEY**: Public anon key (safe to expose to clients)
 
-⚠️ **Never expose your service_role key in client-side code!**
+**Never expose your service_role key in client-side code!**
 
-## 📊 Database Structure
+## Database Structure
 
 The `users` table includes:
 - `user_id` (TEXT, PRIMARY KEY): Telegram user ID
@@ -72,7 +72,7 @@ The `users` table includes:
 - `last_active` (TIMESTAMP): Last activity timestamp
 - `is_active` (BOOLEAN): Soft delete flag
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -87,14 +87,14 @@ You can view and manage data through the Supabase dashboard:
 2. Select the `users` table
 3. View, edit, or delete records as needed
 
-## 🚀 Production Considerations
+## Production Considerations
 
 1. **Backup**: Enable point-in-time recovery in your Supabase project
 2. **Monitoring**: Set up database monitoring and alerts
 3. **Scaling**: Supabase handles scaling automatically
 4. **Security**: Review and tighten RLS policies for production
 
-## 📈 Migration Notes
+## Migration Notes
 
 If you were previously using another storage, export your data and import it into Supabase via the dashboard or SQL.
 
