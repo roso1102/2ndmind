@@ -1,4 +1,4 @@
-# 🔍 **Notification Debug Guide**
+# **Notification Debug Guide**
 
 ## **Issues Found:**
 
@@ -8,7 +8,7 @@
 - **Issue**: When you said "tomorrow at 3pm", it interpreted as UTC time
 
 ### **2. Notification Not Sent**
-- **Scheduler is working**: ✅ APScheduler is running
+- **Scheduler is working**: APScheduler is running
 - **But Telegram message not sent**: ❌ 
 
 ## **Quick Fixes:**
