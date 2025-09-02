@@ -1,14 +1,14 @@
-# 🧪 **Test Examples for Advanced AI Bot**
+# **Test Examples for Advanced AI Bot**
 
 Now that your schema is fixed and you've added the service key and weather API, here are comprehensive test examples to try!
 
-## ✅ **Step 1: Apply Fixed Schema**
+## **Step 1: Apply Fixed Schema**
 
 In Supabase SQL Editor, run the fixed `supabase_advanced_schema.sql` file. It should now work without foreign key errors.
 
 ---
 
-## 🧠 **Advanced Natural Language Tests**
+## **Advanced Natural Language Tests**
 
 ### **Test 1: Natural Conversation**
 ```
@@ -43,7 +43,7 @@ In Supabase SQL Editor, run the fixed `supabase_advanced_schema.sql` file. It sh
 
 ---
 
-## ⏰ **Time Parsing & Reminders Tests**
+## **Time Parsing & Reminders Tests**
 
 ### **Test 4: Natural Time Expression**
 ```
@@ -111,7 +111,7 @@ In Supabase SQL Editor, run the fixed `supabase_advanced_schema.sql` file. It sh
 
 ---
 
-## 🧩 **Memory & Context Tests**
+## **Memory & Context Tests**
 
 ### **Test 10: Conversation Memory**
 ```
@@ -137,7 +137,7 @@ In Supabase SQL Editor, run the fixed `supabase_advanced_schema.sql` file. It sh
 
 ---
 
-## 🌅 **Morning Briefing Test**
+## **Morning Briefing Test**
 
 ### **Test 12: Morning Briefing (if enabled)**
 ```
@@ -159,7 +159,7 @@ In Supabase SQL Editor, run the fixed `supabase_advanced_schema.sql` file. It sh
 
 ---
 
-## 🎯 **Advanced Command Tests**
+## **Advanced Command Tests**
 
 ### **Test 13: Complex Task Creation**
 ```
@@ -185,7 +185,7 @@ In Supabase SQL Editor, run the fixed `supabase_advanced_schema.sql` file. It sh
 
 ---
 
-## 📊 **Expected Performance**
+## **Expected Performance**
 
 ### **Response Times:**
 - Simple conversations: < 2 seconds
@@ -201,7 +201,7 @@ In Supabase SQL Editor, run the fixed `supabase_advanced_schema.sql` file. It sh
 
 ---
 
-## 🐛 **If Something Doesn't Work**
+## **If Something Doesn't Work**
 
 ### **Check Render Logs For:**
 ```
@@ -219,16 +219,16 @@ In Supabase SQL Editor, run the fixed `supabase_advanced_schema.sql` file. It sh
 
 ---
 
-## 🎉 **Success Indicators**
+## **Success Indicators**
 
 You'll know it's working when:
-- ✅ Conversations feel natural and intelligent
-- ✅ Bot remembers context from previous messages
-- ✅ Semantic search finds related content by meaning
-- ✅ Time parsing works with natural expressions
-- ✅ Actual notifications arrive at scheduled times
-- ✅ Bot proactively suggests helpful actions
+- Conversations feel natural and intelligent
+- Bot remembers context from previous messages
+- Semantic search finds related content by meaning
+- Time parsing works with natural expressions
+- Actual notifications arrive at scheduled times
+- Bot proactively suggests helpful actions
 
-**Your bot should now feel like a truly intelligent assistant!** 🧠✨
+**Your bot should now feel like a truly intelligent assistant!** 
 
 Try these examples and let me know how it performs!
