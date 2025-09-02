@@ -1,4 +1,4 @@
-## 🧠 MySecondMind – Your AI-Powered Second Brain (Full Setup Guide)
+## MySecondMind – Your AI-Powered Second Brain (Full Setup Guide)
 
 This guide takes you from zero to running MySecondMind locally and in the cloud. It assumes no prior setup and includes Windows- and macOS/Linux-specific steps.
 
