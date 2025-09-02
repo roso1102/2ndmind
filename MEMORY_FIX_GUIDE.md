@@ -1,10 +1,10 @@
 # 🔧 **Memory Limit Fix Guide**
 
-Your deploy failed because the AI dependencies exceed Render's 512MB free tier limit. Here are your options:
+Your deploy failed because the AI dependencies exceed Render's 512MB free tier limit. Here are the options:
 
 ---
 
-## 🎯 **Option 1: Quick Fix - Use Lightweight Version (FREE)**
+## **Option 1: Quick Fix - Use Lightweight Version (Free)**
 
 ### Step 1: Replace requirements.txt
 ```bash
@@ -23,19 +23,19 @@ git push origin main
 ```
 
 ### What You Get:
-- ✅ **Advanced AI conversations** (Groq Llama-3.1)
-- ✅ **Smart time parsing** (parsedatetime)
-- ✅ **Notification scheduling** (APScheduler)
-- ✅ **Lightweight semantic search** (TF-IDF based)
-- ✅ **All core features work**
-- ❌ Neural embeddings (replaced with TF-IDF)
-- ❌ FAISS vector search (replaced with similarity scoring)
+- **Advanced AI conversations** (Groq Llama-3.1)
+- **Smart time parsing** (parsedatetime)
+- **Notification scheduling** (APScheduler)
+- **Lightweight semantic search** (TF-IDF based)
+- **All core features work**
+- Neural embeddings (replaced with TF-IDF)
+- FAISS vector search (replaced with similarity scoring)
 
-**Memory Usage**: ~400MB ✅
+**Memory Usage**: ~400MB 
 
 ---
 
-## 🎯 **Option 2: Upgrade Render Plan (RECOMMENDED)**
+## **Option 2: Upgrade Render Plan (RECOMMENDED)**
 
 ### Step 1: Upgrade Plan
 1. Go to [Render Dashboard](https://dashboard.render.com)
@@ -53,33 +53,33 @@ git push origin main
 ```
 
 ### What You Get:
-- ✅ **Everything from Option 1**
-- ✅ **Neural embeddings** (sentence-transformers)
-- ✅ **FAISS vector search** (lightning fast)
-- ✅ **Advanced semantic search** (meaning-based)
-- ✅ **Content clustering and recommendations**
-- ✅ **Future-proof for more AI features**
+- **Everything from Option 1**
+- **Neural embeddings** (sentence-transformers)
+- **FAISS vector search** (lightning fast)
+- **Advanced semantic search** (meaning-based)
+- **Content clustering and recommendations**
+- **Future-proof for more AI features**
 
-**Memory Usage**: ~800MB ✅
+**Memory Usage**: ~800MB 
 **Cost**: $7/month
 
 ---
 
-## 📊 **Comparison**
+## **Comparison**
 
-| Feature | Free (Lightweight) | Paid ($7/month) |
-|---------|-------------------|-----------------|
-| **AI Conversations** | ✅ ChatGPT-level | ✅ ChatGPT-level |
-| **Time Parsing** | ✅ Natural language | ✅ Natural language |
-| **Notifications** | ✅ Smart scheduling | ✅ Smart scheduling |
-| **Search Quality** | ✅ Good (TF-IDF) | ✅ Excellent (Neural) |
-| **Speed** | ✅ Fast | ✅ Lightning fast |
-| **Memory Usage** | 400MB | 800MB |
-| **Future Features** | Limited | Unlimited |
+| Feature              | Free (Lightweight)  | Paid ($7/month)       |
+|----------------------|---------------------|-----------------------|
+| **AI Conversations** | ChatGPT-level       | ChatGPT-level         |
+| **Time Parsing**     | Natural language    | Natural language      |
+| **Notifications**    | Smart scheduling    | Smart scheduling      |
+| **Search Quality**   | Good (TF-IDF)       | Excellent (Neural)    |
+| **Speed**            | Fast                | Lightning fast        |
+| **Memory Usage**     | 400MB               | 800MB                 |
+| **Future Features**  | Limited             | Unlimited             |
 
 ---
 
-## 🚀 **Recommended Approach**
+## **Recommended Approach**
 
 ### **For Testing**: Use Option 1 (Free)
 - Test all the core AI features
@@ -93,7 +93,7 @@ git push origin main
 
 ---
 
-## 🛠️ **Quick Deploy Instructions**
+## **Quick Deploy Instructions**
 
 ### **Option 1 (Free/Lightweight)**:
 ```bash
@@ -116,21 +116,19 @@ git push origin main
 
 ---
 
-## ✅ **Both Versions Will Give You**
+## **Both Versions Will Give You**
 
-- 🧠 **ChatGPT-level conversations**
-- ⏰ **"Remind me tomorrow at 3pm"** - works perfectly
-- 🔍 **"Find everything about productivity"** - intelligent search
-- 🧩 **Memory resurfacing and morning briefings**
-- 📱 **Actual notifications delivered to Telegram**
-- 🎯 **Context-aware followup questions**
+- **ChatGPT-level conversations**
+- **"Remind me tomorrow at 3pm"** - works perfectly
+- **"Find everything about productivity"** - intelligent search
+- **Memory resurfacing and morning briefings**
+- **Actual notifications delivered to Telegram**
+- **Context-aware followup questions**
 
 **The core intelligence and user experience will be amazing with either option!**
 
 ---
 
-## 🎯 **My Recommendation**
+## **My Recommendation**
 
 **Start with Option 1 (free)** to test everything, then **upgrade to Option 2** once you see how incredible the AI features are. The $7/month is worth it for the neural search capabilities alone!
-
-Which option would you like to try first?
