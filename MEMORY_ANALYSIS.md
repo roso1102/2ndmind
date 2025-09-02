@@ -1,4 +1,4 @@
-# 🧠 **Memory Usage Analysis & Optimization Guide**
+# **Memory Usage Analysis & Optimization Guide**
 
 ## **Current Memory Usage (Minimal Setup)**
 
@@ -22,7 +22,7 @@ Core Dependencies (~150-200MB):
 TOTAL: ~220MB (leaves ~290MB free)
 ```
 
-## **🚀 What We Can Add Within 512MB Limit**
+## ** What We Can Add Within 512MB Limit**
 
 ### **Option 1: Lightweight AI Enhancement (~100MB)**
 ```python
@@ -66,7 +66,7 @@ faiss-cpu>=1.7.0                # ~50MB - Vector search
 - Fast vector similarity
 - Content embeddings storage
 
-## **🔧 Memory Monitoring Integration**
+## ** Memory Monitoring Integration**
 
 Add this to `main.py`:
 
@@ -87,7 +87,7 @@ async def startup_event():
     log_memory_usage()
 ```
 
-## **🎯 Recommended Approach**
+## **Recommended Approach**
 
 ### **Phase 1: Smart Minimal (Current + 100MB)**
 ```bash
@@ -97,14 +97,14 @@ scikit-learn>=1.3.0
 psutil>=5.9.0  # For monitoring
 ```
 
-**Total: ~320MB** ✅ Safe margin
+**Total: ~320MB** Safe margin
 
 ### **Phase 2: If Phase 1 works, add:**
 ```bash
 sentence-transformers>=2.2.0  # Small models only
 ```
 
-**Total: ~400MB** ✅ Still safe
+**Total: ~400MB** Still safe
 
 ### **Phase 3: Advanced (if needed)**
 ```bash
@@ -112,7 +112,7 @@ pandas>=2.0.0     # For analytics
 chromadb>=0.4.0   # Vector storage
 ```
 
-## **🔍 Better Context & Retrieval Features**
+## **Better Context & Retrieval Features**
 
 With the above packages, we can add:
 
@@ -137,14 +137,14 @@ With the above packages, we can add:
    - Content categorization
    - Automatic tagging improvements
 
-## **🚨 Memory Safety Rules**
+## **Memory Safety Rules**
 
 1. **Always monitor**: Add memory logging
 2. **Gradual deployment**: Test each phase separately  
 3. **Fallback ready**: Keep ultra-lite version available
 4. **Auto-scaling**: Consider upgrading to paid tier if needed
 
-## **💡 Pro Tips**
+## **Pro Tips**
 
 - Use `sentence-transformers` with small models (`all-MiniLM-L6-v2` ~90MB)
 - Avoid `torch` directly (use sentence-transformers instead)
