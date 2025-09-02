@@ -99,7 +99,7 @@ Bot: Found 2 matching tasks:
 - Current priorities: stabilize Phase 1, start Phase 2 fuzzy matching
 - Technical debt: better DB error handling, session store (Redis), logging
 
-## 📈 Success Metrics
+## Success Metrics
 - Phase 1: Sequential numbers, CRUD, search working
 - Phase 2: NLP content matching accuracy >90%
 
